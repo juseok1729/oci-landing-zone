@@ -1,4 +1,4 @@
-# 규칙 형식은 NSG 와 같습니다 (locals.tf fw_rules). CIDR 대신 all-services / objectstorage 도 가능
+# 규칙 형식은 NSG 와 같다 (locals.tf fw_rules). CIDR 대신 all-services / objectstorage 도 가능
 resource "oci_core_security_list" "this" {
   for_each = local.sl
 
@@ -129,5 +129,5 @@ resource "oci_core_subnet" "this" {
     ]
   )
 
-  # route_table_id 는 여기서 지정하지 않습니다 → route_tables.tf 의 oci_core_route_table_attachment
+  # route_table_id 는 여기서 지정하지 않는다 → route_tables.tf 의 oci_core_route_table_attachment
 }

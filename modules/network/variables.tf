@@ -1,6 +1,6 @@
 #
-# 입력 타입 = YAML 스키마.  optional(...) 의 두 번째 값이 기본값입니다.
-# 키를 추가/삭제하면 modules/config/main.tf 의 allowed 목록도 같이 고치세요.
+# 입력 타입 = YAML 스키마.  optional(...) 의 두 번째 값이 기본값이다.
+# 키를 추가/삭제하면 modules/config/main.tf 의 allowed 목록도 같이 고친다.
 #
 
 variable "compartment_ids" {
@@ -120,7 +120,7 @@ variable "vcns" {
       })), [])
     })), {})
 
-    # NSG 는 만들기만 하고 OCID 를 출력합니다. VNIC 연결은 인스턴스/LB 배포 쪽에서.
+    # NSG 는 만들기만 하고 OCID 를 출력한다. VNIC 연결은 인스턴스/LB 배포 쪽에서.
     # source / destination 에 nsg:<같은 VCN 의 NSG 이름> 도 가능
     network_security_groups = optional(map(object({
       display_name = optional(string)

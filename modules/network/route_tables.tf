@@ -1,13 +1,13 @@
 #
-# Route table 은 YAML 에 적힌 위치에 따라 3개 리소스 블록으로 나눕니다 (locals.tf rt_all.kind).
+# Route table 은 YAML 에 적힌 위치에 따라 3개 리소스 블록으로 나눈다 (locals.tf rt_all.kind).
 #
 #   RT(sgw)   ── service_gateways.<SGW>.route_table  target: drg / privateip  (OCI 제약)
 #   RT(drga)  ── drg_attachment.route_table          target: sgw / privateip  (OCI 제약)
 #   RT(subnet)── route_tables                        target: igw / sgw / drg / privateip
 #
-# 한 블록에 모두 넣으면  SGW → RT → (target)SGW  같은 순환이 생겨 plan 이 실패합니다.
+# 한 블록에 모두 넣으면  SGW → RT → (target)SGW  같은 순환이 생겨 plan 이 실패한다.
 # subnet ↔ RT 연결은 oci_core_route_table_attachment 로 따로 하므로
-# RT 가 같은 VCN 의 private IP(FortiGate 등)를 target 으로 써도 순환이 생기지 않습니다.
+# RT 가 같은 VCN 의 private IP(FortiGate 등)를 target 으로 써도 순환이 생기지 않는다.
 #
 
 # ── privateip:<IP> target 조회 ───────────────────────────────

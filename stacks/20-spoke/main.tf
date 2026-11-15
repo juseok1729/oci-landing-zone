@@ -12,7 +12,7 @@ terraform {
     }
   }
 
-  # bucket / namespace / region 은 backend.hcl 로 주입 (key 는 여기 고정 — backend.hcl 에 key 를 넣지 마세요)
+  # bucket / namespace / region 은 backend.hcl 로 주입 (key 는 여기 고정 — backend.hcl 에 key 를 넣지 않는다)
   # workspace 별 state 위치: tf-state-env/<workspace>/lz/spoke.tfstate
   backend "oci" {
     key = "lz/spoke.tfstate"
@@ -26,7 +26,7 @@ provider "oci" {
 }
 
 locals {
-  # default workspace 는 terraform test 전용 (var.vcn). 실제 실행은 workspace 가 VCN 을 정합니다.
+  # default workspace 는 terraform test 전용 (var.vcn). 실제 실행은 workspace 가 VCN 을 정한다.
   vcn_file = terraform.workspace == "default" ? var.vcn : terraform.workspace
 
   # terraform_remote_state 의 oci backend 는 auth 값을 APIKey 로 씀 (provider 는 ApiKey)

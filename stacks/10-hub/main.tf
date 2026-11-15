@@ -1,6 +1,6 @@
 #
 # 10-hub : DRG(+ DRG route table) · HUB_VCN(config/vcns/hub.yaml) · spoke 에 속하지 않은 bucket
-#   spoke stack 은 이 state 의 drg_ids / drg_route_table_ids 를 읽어 DRG 에 attach 합니다.
+#   spoke stack 은 이 state 의 drg_ids / drg_route_table_ids 를 읽어 DRG 에 attach 한다.
 #
 terraform {
   required_version = "~> 1.12"
@@ -12,7 +12,7 @@ terraform {
     }
   }
 
-  # bucket / namespace / region 은 backend.hcl 로 주입 (key 는 여기 고정 — backend.hcl 에 key 를 넣지 마세요)
+  # bucket / namespace / region 은 backend.hcl 로 주입 (key 는 여기 고정 — backend.hcl 에 key 를 넣지 않는다)
   backend "oci" {
     key = "lz/hub.tfstate"
   }
@@ -50,7 +50,7 @@ module "config" {
 locals {
   compartment_ids = data.terraform_remote_state.iam.outputs.compartment_ids
 
-  # spoke VCN 의 compartment 에 속한 bucket 은 그 spoke stack 이, 나머지는 hub 가 만듭니다
+  # spoke VCN 의 compartment 에 속한 bucket 은 그 spoke stack 이, 나머지는 hub 가 만든다
   spoke_compartments = distinct(flatten([
     for f, d in module.config.vcn_files : [for v in values(d) : try(v.compartment, "")] if f != local.vcn_file
   ]))

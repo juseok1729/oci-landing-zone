@@ -1,5 +1,5 @@
-# NSG 는 만들기만 합니다. VNIC(FortiGate/WAPPLES/LB 등) 연결은 그 리소스를 배포하는 쪽에서
-# output nsg_ids 로 받아 nsg_ids 에 넣습니다.
+# NSG 는 만들기만 한다. VNIC(FortiGate/WAPPLES/LB 등) 연결은 그 리소스를 배포하는 쪽에서
+# output nsg_ids 로 받아 nsg_ids 에 넣는다.
 resource "oci_core_network_security_group" "this" {
   for_each = local.nsg
 

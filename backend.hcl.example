@@ -1,6 +1,6 @@
 # cp backend.hcl.example backend.hcl 후 값 수정 (세 stack 이 같이 씀)
-# 버킷은 미리 만들어 두고 Versioning 을 켜 두세요.
-# key 는 넣지 마세요 — stack 마다 main.tf 에 고정되어 있습니다 (lz/iam.tfstate, lz/hub.tfstate, lz/spoke.tfstate).
+# 버킷은 미리 만들어 두고 Versioning 을 켜 둔다.
+# key 는 넣지 않는다 — stack 마다 main.tf 에 고정되어 있다 (lz/iam.tfstate, lz/hub.tfstate, lz/spoke.tfstate).
 bucket              = "lz-tfstate"
 namespace           = "<object-storage-namespace>"
 region              = "ap-seoul-1"

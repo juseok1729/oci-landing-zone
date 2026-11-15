@@ -1,5 +1,5 @@
 # OCI 자격증명 없이 도는 테스트:  terraform init -backend=false && terraform test   (또는 make test)
-#   test 는 default workspace 에서 돌기 때문에 var.vcn 으로 VCN 파일을 고릅니다.
+#   test 는 default workspace 에서 돌기 때문에 var.vcn 으로 VCN 파일을 고른다.
 
 mock_provider "oci" {
   mock_data "oci_objectstorage_namespace" {

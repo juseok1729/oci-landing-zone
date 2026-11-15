@@ -1,9 +1,9 @@
 #
-# YAML(var.vcns, var.drgs)을 리소스별 평평한 map 으로 정리합니다.
+# YAML(var.vcns, var.drgs)을 리소스별 평평한 map 으로 정리한다.
 #  - 이름(키)은 전체에서 유일 → 리소스 for_each 키로 그대로 사용
 #  - compartment 는 이름이면 OCID 로 바꾸고, ocid1... 이면 그대로 사용
-#  - 여기서는 리소스를 참조하지 않습니다 (설정 값만 다룸)
-#  - 이름이 중복되면 merge 가 덮어쓰고, validation.tf 의 중복 검사가 메시지로 알려 줍니다
+#  - 여기서는 리소스를 참조하지 않는다 (설정 값만 다룸)
+#  - 이름이 중복되면 merge 가 덮어쓰고, validation.tf 의 중복 검사가 메시지로 알린다
 #
 
 locals {
@@ -77,7 +77,7 @@ locals {
   ]...)
 
   # ── Route table ────────────────────────────────────────────
-  # YAML 에 적힌 위치가 곧 종류(kind) → Terraform 리소스 블록이 정해집니다.
+  # YAML 에 적힌 위치가 곧 종류(kind) → Terraform 리소스 블록이 정해진다.
   #   subnet : route_tables:                           (oci_core_route_table.subnet)
   #   sgw    : service_gateways.<SGW>.route_table:     (oci_core_route_table.sgw)
   #   drga   : drg_attachment.route_table:             (oci_core_route_table.drga)
@@ -144,7 +144,7 @@ locals {
   # ── Security list / NSG ────────────────────────────────────
   protocol_numbers = { all = "all", tcp = "6", udp = "17", icmp = "1" }
 
-  # SL 과 NSG 의 규칙은 형식이 같아서 한 번에 정규화합니다.
+  # SL 과 NSG 의 규칙은 형식이 같아서 한 번에 정규화한다.
   fw_owner = merge(flatten([
     for vk, v in var.vcns : [
       [for k, x in v.security_lists : { (k) = { owner_kind = "sl", vcn_key = vk, vcn_cmp = v.compartment, display_name = x.display_name, compartment = x.compartment, ingress = x.ingress, egress = x.egress } }],

@@ -1,8 +1,8 @@
 #
-# config/ YAML 을 읽고 "알 수 없는 키(오타)" 를 찾습니다. 리소스는 만들지 않습니다.
-#  - Terraform 은 타입에 없는 키를 조용히 버리므로, 키 이름 검사는 여기서 합니다.
-#  - 값의 정합성(CIDR 범위, 참조 등)은 각 리소스 모듈의 config_errors 가 담당합니다.
-#  - 오류는 파일별로 돌려줘서, stack 은 자기와 관련된 파일 오류만 봅니다.
+# config/ YAML 을 읽고 "알 수 없는 키(오타)" 를 찾는다. 리소스는 만들지 않는다.
+#  - Terraform 은 타입에 없는 키를 조용히 버리므로, 키 이름 검사는 여기서 한다.
+#  - 값의 정합성(CIDR 범위, 참조 등)은 각 리소스 모듈의 config_errors 가 담당한다.
+#  - 오류는 파일별로 돌려주므로, stack 은 자기와 관련된 파일 오류만 본다.
 #
 
 variable "config_dir" {
@@ -24,7 +24,7 @@ locals {
     if yamldecode(file("${local.dir}/vcns/${f}")) != null
   }
 
-  # 새 키를 추가하면 modules/network/variables.tf 타입에도 추가하세요.
+  # 새 키를 추가하면 modules/network/variables.tf 타입에도 추가한다.
   allowed = {
     compartments_file = ["parent_ocid", "compartments"]
     compartment       = ["description", "ocid"]

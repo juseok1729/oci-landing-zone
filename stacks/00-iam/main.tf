@@ -1,5 +1,5 @@
 #
-# 00-iam : compartment (홈 리전).  다른 stack 은 이 state 의 compartment_ids 를 읽습니다.
+# 00-iam : compartment (홈 리전).  다른 stack 은 이 state 의 compartment_ids 를 읽는다.
 #
 terraform {
   required_version = "~> 1.12"
@@ -15,7 +15,7 @@ terraform {
     }
   }
 
-  # bucket / namespace / region 은 backend.hcl 로 주입 (key 는 여기 고정 — backend.hcl 에 key 를 넣지 마세요)
+  # bucket / namespace / region 은 backend.hcl 로 주입 (key 는 여기 고정 — backend.hcl 에 key 를 넣지 않는다)
   backend "oci" {
     key = "lz/iam.tfstate"
   }

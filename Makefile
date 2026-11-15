@@ -1,5 +1,5 @@
 # 실행 순서: iam → hub → spoke(prd/dev/mgmt).  예) make plan-prd / make apply-hub / make apply-all / make destroy-all
-#   terraform.tfvars 와 backend.hcl 은 repo 루트에 둡니다 (*.example 복사).
+#   terraform.tfvars 와 backend.hcl 은 repo 루트에 둔다 (*.example 복사).
 
 TF     ?= terraform
 SPOKES := prd dev mgmt
@@ -28,7 +28,7 @@ destroy-%:
 # 만든 순서의 역순. iam 은 compartment 를 state 에서만 빼고 실제로는 남김 (enable_delete = false)
 destroy-all: $(addprefix destroy-,$(SPOKES)) destroy-hub destroy-iam
 
-# OCI 자격증명 없이 (mock provider). 백엔드 초기화와 별개로 돌릴 수 있습니다.
+# OCI 자격증명 없이 (mock provider). 백엔드 초기화와 별개로 돌릴 수 있다.
 # TF_WORKSPACE=default: 실제 apply 후 선택돼 있는 spoke workspace(prd 등)를 test 가 따라가지 않게 (선택 상태는 안 바뀜)
 test:
 	for d in 00-iam 10-hub 20-spoke; do (cd stacks/$$d && $(TF) init -backend=false -input=false >/dev/null && TF_WORKSPACE=default $(TF) test) || exit 1; done
