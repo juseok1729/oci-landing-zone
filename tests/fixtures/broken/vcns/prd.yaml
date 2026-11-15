@@ -1,4 +1,4 @@
-# 일부러 틀린 설정 — 모두 plan 단계에서 걸러져야 함
+# 일부러 틀린 설정. 모두 plan 단계에서 걸러져야 함
 PRD_VCN:
   compartment: PRD_COMPP                 # 오류: 없는 compartment
   cidrs: [10.1.0.0/16]

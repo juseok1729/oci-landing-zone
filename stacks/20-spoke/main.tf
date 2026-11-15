@@ -12,7 +12,7 @@ terraform {
     }
   }
 
-  # bucket / namespace / region 은 backend.hcl 로 주입 (key 는 여기 고정 — backend.hcl 에 key 를 넣지 않는다)
+  # bucket / namespace / region 은 backend.hcl 로 주입 (key 는 여기 고정. N.B. backend.hcl 에 key 를 넣지 않는다)
   # workspace 별 state 위치: tf-state-env/<workspace>/lz/spoke.tfstate
   backend "oci" {
     key = "lz/spoke.tfstate"

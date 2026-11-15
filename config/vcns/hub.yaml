@@ -1,5 +1,5 @@
 # ─────────────────────────────────────────────────────────────
-# HUB_VCN (DMZ) — FortiGate HA(A-P), WAPPLES HA(A-A)
+# HUB_VCN (DMZ): FortiGate HA(A-P), WAPPLES HA(A-A)
 #
 # route rule target 표기법
 #   igw:<IGW 이름>          같은 VCN의 Internet Gateway
