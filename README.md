@@ -5,7 +5,9 @@
 ![hashicorp/time](https://img.shields.io/badge/hashicorp%2Ftime-0.14.2-844FBA?logo=hashicorp&logoColor=white)
 ![OCI backend](https://img.shields.io/badge/state-OCI%20Object%20Storage-C74634?logo=oracle&logoColor=white)
 
-설계서의 HUB / PRD / DEV / MGMT 구조를 **YAML 만 고쳐서** 운영하는 Terraform 코드다.
+**YAML 이 설계서이고, Terraform 은 그 YAML 을 읽어 리소스로 바꾸는 범용 엔진이다.**
+실제 값(CIDR, 이름, 규칙)은 전부 `config/` 에 있고, `.tf` 코드는 YAML 을 읽어 `for_each` 로 리소스를 만드는 역할만 한다.
+그래서 설계서의 HUB / PRD / DEV / MGMT 구조를 **YAML 만 고쳐서** 운영한다.
 
 > [!IMPORTANT]
 > 팀원은 `config/` 아래 YAML 만 수정한다. `modules/` · `stacks/` 는 관리자(owner)만 손댄다.
