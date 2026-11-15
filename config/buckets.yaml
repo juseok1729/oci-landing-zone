@@ -1,0 +1,25 @@
+# ─────────────────────────────────────────────────────────────
+# Object Storage Buckets
+#  - 키가 버킷 이름입니다 (namespace 내 유일해야 함).
+#  - 접근 유형은 항상 NoPublicAccess 로 생성됩니다.
+#  - 객체가 남아 있는 버킷은 destroy 되지 않습니다.
+# ─────────────────────────────────────────────────────────────
+
+buckets:
+  PRD-CONNECTOR-SYSLOG-TO-BUCKET-01:
+    compartment: PRD_COMP
+  DEV-CONNECTOR-SYSLOG-TO-BUCKET-01:
+    compartment: DEV_COMP
+
+  MGMT-CONNECTOR-SYSLOG-TO-BUCKET-01:
+    compartment: MGMT_COMP
+  MGMT-BUCKET-AUDIT-LOG-01:
+    compartment: MGMT_COMP
+  MGMT-BUCKET-SERVICE-LOG-01:
+    compartment: MGMT_COMP
+
+  # 옵션 예시
+  # SAMPLE-BUCKET:
+  #   compartment: MGMT_COMP
+  #   storage_tier: Standard     # Standard | Archive
+  #   versioning: true           # 기본 false

@@ -1,0 +1,25 @@
+# 일부러 틀린 설정 — 모두 plan 단계에서 걸러져야 함
+PRD_VCN:
+  compartment: PRD_COMPP                 # 오류: 없는 compartment
+  cidrs: [10.1.0.0/16]
+  dns_label: prd
+
+  drg_attachment:
+    name: PRD_DRG_ATT
+    drg: HUB_DRG
+
+  route_tables:
+    PRD_PRI_RT:
+      rules:
+        - destination: 10.1.0.0/16       # 오류: 자기 VCN CIDR 를 DRG 로
+          target: drg:HUB_DRG
+        - destination: 10.0.0.0/16
+          target: drg:HUB_DRG
+        - destination: 10.0.0.0/16       # 오류: destination 중복
+          target: drg:HUB_DRG
+
+  subnets:
+    PRD_WEB_PRI_SBN:
+      cidr: 10.2.10.0/24                 # 오류: VCN 범위 밖
+      route_tabel: PRD_PRI_RT            # 오류: 키 오타
+      dns_label: Web_01                  # 오류: dns_label 형식

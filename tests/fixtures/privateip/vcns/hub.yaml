@@ -1,0 +1,51 @@
+# FortiGate VIP(10.0.10.160)를 target 으로 쓰는 rule 이 활성화된 최소 구성
+HUB_VCN:
+  compartment: HUB_COMP
+  cidrs: [10.0.0.0/16]
+  dns_label: hub
+
+  service_gateways:
+    HUB_SGW:
+      route_table:
+        name: HUB_SGW_RT
+        rules:
+          - destination: 10.1.0.0/16
+            target: drg:HUB_DRG
+
+  drg_attachment:
+    name: HUB_DRG_ATT
+    drg: HUB_DRG
+    route_table:
+      name: HUB_INGRESS_RT
+      rules:
+        - destination: all-services
+          target: sgw:HUB_SGW
+        - destination: 0.0.0.0/0
+          target: privateip:10.0.10.160
+
+  network_security_groups:
+    HUB_DNS_NSG:
+      ingress:
+        - { source: 192.168.10.0/24, protocol: udp, port: "53", stateless: true }
+        - { source: 192.168.10.0/24, protocol: tcp, port: "53" }
+      egress:
+        - { destination: 192.168.10.0/24, protocol: udp, source_port: "53", stateless: true }
+    HUB_APP_NSG:
+      ingress:
+        - { source: nsg:HUB_DNS_NSG, protocol: tcp, port: "8080-8082" }   # NSG → NSG
+        - { source: nsg:HUB_APP_NSG, protocol: all }                      # 같은 NSG 안끼리
+      egress:
+        - { destination: nsg:HUB_DNS_NSG, protocol: udp, port: "53" }
+
+  security_lists:
+    HUB_DNS_SL:
+      ingress:
+        - { source: 192.168.10.0/24, protocol: udp, port: "53", stateless: true }
+      egress:
+        - { destination: 192.168.10.0/24, protocol: udp, source_port: "53", stateless: true }
+
+  subnets:
+    HUB_FW_TRUST_PRI_SBN:
+      cidr: 10.0.10.0/24
+      dns_label: fwtrust
+      security_lists: [default, HUB_DNS_SL]

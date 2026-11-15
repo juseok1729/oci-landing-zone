@@ -1,0 +1,82 @@
+MGMT_VCN:
+  compartment: MGMT_COMP
+  cidrs: [10.3.0.0/16]
+  dns_label: mgmt
+
+#  internet_gateways:
+#    MGMT_IGW: {}
+
+  drg_attachment:
+    name: MGMT_DRG_ATT
+    drg: HUB_DRG
+    drg_route_table: DRG_SPOKE_RT
+
+  route_tables:
+    MGMT_RT:
+      rules:
+        - destination: 0.0.0.0/0
+          target: drg:HUB_DRG
+          description: "인터넷/OCI 서비스 → HUB"
+          enabled: true
+    MGMT_BASTION_PUB_RT:
+      rules:
+        - destinations: [10.0.0.0/16, 10.1.0.0/16, 10.2.0.0/16]
+          target: drg:HUB_DRG
+          description: "검사 후 허브/운영/개발 VCN"
+#        - destination: 0.0.0.0/0
+#          target: igw:MGMT_IGW
+#          description: "FortiGate 우회경로"
+
+  subnets:
+    MGMT_BASTION_PUB_SBN:
+      cidr: 10.3.0.0/24
+      public: true
+      route_table: MGMT_BASTION_PUB_RT
+      dns_label: bastion
+    MGMT_MON_PRI_SBN:
+      cidr: 10.3.16.0/24
+      route_table: MGMT_RT
+      dns_label: mon
+    MGMT_CI_PRI_SBN:
+      cidr: 10.3.32.0/24
+      route_table: MGMT_RT
+      dns_label: ci
+    MGMT_CD_PRI_SBN:
+      cidr: 10.3.48.0/24
+      route_table: MGMT_RT
+      dns_label: cd
+    MGMT_DBAC_PRI_SBN:
+      cidr: 10.3.64.0/24
+      route_table: MGMT_RT
+      dns_label: dbac
+    MGMT_DBENC_PRI_SBN:
+      cidr: 10.3.80.0/24
+      route_table: MGMT_RT
+      dns_label: dbenc
+
+  network_security_groups:
+    MGMT_HQ_SSH_NSG:
+      ingress:
+        - { source: 192.168.10.0/24, protocol: tcp, port: "22022", description: "HQ SSH" }
+    MGMT_CI_LB_NSG:
+      ingress:
+        - { source: 0.0.0.0/0, protocol: tcp, port: "443", description: "HTTPS Open" }
+        - { source: 0.0.0.0/0, protocol: tcp, port: "80", description: "HTTP Open" }
+      egress:
+        - { destination: nsg:MGMT_CI_VM_NSG, protocol: tcp, port: "80", description: "CI 백엔드 포트" }
+    MGMT_CI_VM_NSG:
+      ingress:
+        - { source: 10.3.48.0/24, protocol: tcp, port: "80", description: "CD 서버 연동" }
+        - { source: 10.3.48.0/24, protocol: tcp, port: "443", description: "CD 서버 연동" }
+        - { source: nsg:MGMT_CI_LB_NSG, protocol: tcp, port: "80", description: "LB 헬스체크 및 백엔드 연결" }
+    MGMT_CD_LB_NSG:
+      ingress:
+        - { source: 0.0.0.0/0, protocol: tcp, port: "443", description: "HTTPS Open" }
+        - { source: 0.0.0.0/0, protocol: tcp, port: "80", description: "HTTP Open" }
+      egress:
+        - { destination: nsg:MGMT_CD_VM_NSG, protocol: tcp, port: "8080", description: "CD 백엔드 포트" }
+    MGMT_CD_VM_NSG:
+      ingress:
+        - { source: 10.3.32.0/24, protocol: tcp, port: "80", description: "CI 서버 연동" }
+        - { source: 10.3.32.0/24, protocol: tcp, port: "443", description: "CI 서버 연동" }
+        - { source: nsg:MGMT_CD_LB_NSG, protocol: tcp, port: "8080", description: "LB 헬스체크 및 백엔드 연결" }

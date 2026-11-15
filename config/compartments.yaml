@@ -1,0 +1,23 @@
+# ─────────────────────────────────────────────────────────────
+# Compartments
+#  - 키(HUB_COMP 등)가 곧 OCI compartment 이름입니다.
+#  - 다른 YAML 파일에서는 이 키 이름으로 compartment를 가리킵니다.
+#  - 이미 있는 compartment를 쓰려면 ocid만 적으세요 (생성하지 않고 참조만).
+# ─────────────────────────────────────────────────────────────
+
+# 상위 compartment OCID. 비워두면 tenancy(root) 바로 아래에 생성.
+parent_ocid: "ocid1.compartment.oc1..aaaaaaaaqjhru4fod33ddc4ba7wqyarjdcigt6uhs7fknlxdqi2kvr7zcmia"
+
+compartments:
+  HUB_COMP:
+    description: "허브(DMZ) - FortiGate, WAPPLES, DRG"
+  PRD_COMP:
+    description: "운영"
+  DEV_COMP:
+    description: "개발"
+  MGMT_COMP:
+    description: "관리"
+
+  # 예) 고객사가 미리 만들어 둔 compartment를 참조만 할 때
+  # SHARED_COMP:
+  #   ocid: ocid1.compartment.oc1..aaaaexample

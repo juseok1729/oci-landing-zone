@@ -1,0 +1,8 @@
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+crash.log
+terraform.tfvars
+backend.hcl
+# .terraform.lock.hcl 은 커밋합니다 (provider 버전 고정)

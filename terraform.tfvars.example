@@ -1,0 +1,11 @@
+# cp terraform.tfvars.example terraform.tfvars 후 값 수정 (terraform.tfvars 는 git 에 올리지 않음)
+tenancy_ocid       = "ocid1.tenancy.oc1..aaaaexample"
+region             = "ap-seoul-1"
+# home_region      = "ap-seoul-1"
+oci_auth           = "ApiKey"
+oci_config_profile = "DEFAULT"
+
+# backend.hcl 과 같은 값 (hub/spoke stack 이 다른 stack 의 output 을 읽을 때 사용)
+state_bucket    = "lz-tfstate"
+state_namespace = "<object-storage-namespace>"
+# state_region  = "ap-seoul-1"

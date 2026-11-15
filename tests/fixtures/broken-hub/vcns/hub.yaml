@@ -1,0 +1,40 @@
+# 일부러 틀린 설정 — 게이트웨이 RT 제약 위반. 모두 plan 단계에서 걸러져야 함
+HUB_VCN:
+  compartment: HUB_COMP
+  cidrs: [10.0.0.0/16]
+
+  internet_gateways:
+    HUB_IGW: {}
+
+  service_gateways:
+    HUB_SGW:
+      route_table:
+        name: HUB_SGW_RT
+        rules:
+          - destination: 0.0.0.0/0
+            target: igw:HUB_IGW          # 오류: SGW 용 RT 는 drg/privateip 만
+
+  drg_attachment:
+    name: HUB_DRG_ATT
+    drg: HUB_DRG
+    route_table:
+      name: HUB_INGRESS_RT
+      rules:
+        - destination: 10.1.0.0/16
+          target: drg:HUB_DRG            # 오류: DRG attachment RT 는 sgw/privateip 만
+
+  network_security_groups:
+    HUB_NSG:
+      ingress:
+        - { source: 10.0.0.0/8, protocol: icmp, source_port: "53" }   # 오류: source_port 는 tcp/udp 만
+        - { source: nsg:NO_SUCH_NSG, protocol: tcp }                    # 오류: 없는 NSG
+
+  security_lists:
+    HUB_SL:
+      ingress:
+        - { source: nsg:HUB_NSG, protocol: tcp }                        # 오류: SL 은 NSG 를 source 로 못 씀
+
+  subnets:
+    HUB_SBN:
+      cidr: 10.0.0.0/24
+      route_table: HUB_SGW_RT            # 오류: 게이트웨이 전용 RT 를 subnet 에
