@@ -23,7 +23,7 @@ HUB_VCN:
   internet_gateways:
     HUB_IGW: {}
 
-  # 게이트웨이에 붙는 route table 은 그 게이트웨이 아래에 적습니다 (subnet 용은 route_tables:).
+  # 게이트웨이에 붙는 route table 은 그 게이트웨이 아래에 적는다 (subnet 용은 route_tables:).
   #   SGW 용 RT       → target: drg: / privateip: 만 가능 (OCI 제약)
   #   DRG attachment  → target: sgw: / privateip: 만 가능 (OCI 제약)
   service_gateways:
@@ -94,7 +94,7 @@ HUB_VCN:
 
     HUB_FW_WAF_PRI_RT:
       rules:
-        # private IP target은 해당 IP가 실제로 존재해야 조회됩니다.
+        # private IP target은 해당 IP가 실제로 존재해야 조회된다.
         # → FortiGate 배포 전 첫 apply에서는 false, 배포 후 true 로 바꾸고 다시 apply
         - destination: 0.0.0.0/0
           target: privateip:10.0.16.160

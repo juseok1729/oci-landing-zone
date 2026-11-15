@@ -1,8 +1,8 @@
 # ─────────────────────────────────────────────────────────────
 # Compartments
-#  - 키(HUB_COMP 등)가 곧 OCI compartment 이름입니다.
-#  - 다른 YAML 파일에서는 이 키 이름으로 compartment를 가리킵니다.
-#  - 이미 있는 compartment를 쓰려면 ocid만 적으세요 (생성하지 않고 참조만).
+#  - 키(HUB_COMP 등)가 곧 OCI compartment 이름이다.
+#  - 다른 YAML 파일에서는 이 키 이름으로 compartment를 가리킨다.
+#  - 이미 있는 compartment를 쓰려면 ocid만 적는다 (생성하지 않고 참조만).
 # ─────────────────────────────────────────────────────────────
 
 # 상위 compartment OCID. 비워두면 tenancy(root) 바로 아래에 생성.
