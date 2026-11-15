@@ -6,7 +6,9 @@
 ![OCI backend](https://img.shields.io/badge/state-OCI%20Object%20Storage-C74634?logo=oracle&logoColor=white)
 
 설계서의 HUB / PRD / DEV / MGMT 구조를 **YAML 만 고쳐서** 운영하는 Terraform 코드다.
-팀원은 `config/` 아래 YAML 만 수정하고, `modules/` · `stacks/` 는 관리자(owner)만 손댄다.
+
+> [!IMPORTANT]
+> 팀원은 `config/` 아래 YAML 만 수정한다. `modules/` · `stacks/` 는 관리자(owner)만 손댄다.
 
 ```
 oci-hub-spoke-lz/
@@ -34,6 +36,10 @@ oci-hub-spoke-lz/
 
 ## 빠른 시작
 
+> [!IMPORTANT]
+> state 버킷은 Terraform 이 만들지 않는다. **Versioning 을 켠 버킷을 먼저 만들고** 시작한다.
+> `backend.hcl` 에는 `key` 를 넣지 않는다 — stack 마다 `main.tf` 에 고정돼 있다.
+
 ```bash
 cp terraform.tfvars.example terraform.tfvars   # tenancy_ocid, region, profile, state_bucket/namespace
 cp backend.hcl.example backend.hcl             # state 버킷 (미리 생성 + Versioning). key 는 넣지 않음
@@ -45,6 +51,14 @@ make apply-prd        # 3. spoke (dev, mgmt 도 같은 방식)
 # 또는 make apply-all  (iam → hub → prd → dev → mgmt 순서)
 # 삭제: make destroy-all (역순. compartment 는 state 에서만 빠지고 OCI 에 남음 — enable_delete = false)
 ```
+
+> [!TIP]
+> `make apply-*` 는 plan 을 먼저 보여 주고 `yes` 를 기다린다. 따로 `make plan-*` 을 돌릴 필요는 없다.
+> 바꾸지 않고 변경 내용만 보고 싶을 때 `make plan-*` 을 쓴다.
+
+> [!WARNING]
+> stack 은 **iam → hub → spoke** 순서로 apply 한다. 뒤 stack 은 앞 stack 의 state(output)를 읽으므로,
+> 앞 stack 을 apply 하기 전에는 뒤 stack 의 plan 이 실패한다. 삭제는 반대 순서(spoke → hub → iam)다.
 
 - Terraform **1.12 이상** (native `oci` backend). provider 버전은 각 stack 의 `.terraform.lock.hcl` 로 고정 (oracle/oci 9.x)
 - 의존 방향은 **iam → hub → spoke** 하나뿐이다. 뒤 stack 은 앞 stack 의 output 을 `terraform_remote_state` 로 읽는다
@@ -58,7 +72,9 @@ make apply-prd        # 3. spoke (dev, mgmt 도 같은 방식)
 - 새 spoke VCN 은 `config/vcns/<이름>.yaml` 을 추가하고 `make apply-<이름>` (Makefile 의 `SPOKES` 에도 추가)
 - Compartment(IAM)는 홈 리전에서만 생성된다. 리소스 리전과 홈 리전이 다르면 `home_region` 지정
 - 모든 리소스에 `ManagedBy=terraform`, `Stack=<iam|hub|prd|...>` freeform tag 가 붙는다.
-  콘솔에서 이 태그가 보이면 Terraform 관리 대상이니 직접 고치지 않는다 (다음 apply 때 되돌아간다)
+
+> [!CAUTION]
+> `ManagedBy=terraform` 태그가 붙은 리소스를 **콘솔에서 직접 고치지 않는다.** 다음 apply 때 YAML 내용으로 되돌아간다.
 
 ### 자격증명 없이 테스트
 
@@ -73,6 +89,10 @@ make test        # 세 stack 각각 terraform init -backend=false && terraform t
 | 20-spoke | prd · dev · mgmt apply (subnet · RT · attachment · bucket · NSG 개수), hub 파일 선택 거부, 잘못된 YAML(`tests/fixtures/broken`) 거부 |
 
 다른 stack 의 state 는 테스트에서 `override_data` 로 대신한다.
+
+> [!NOTE]
+> `make test` 는 OCI 에 연결하지 않고(mock provider), 선택된 workspace 와 상관없이 `default` workspace 로 돈다.
+> config 를 고친 뒤 apply 전에 돌리면 YAML 오류와 리소스 개수 변화를 먼저 잡을 수 있다.
 
 ## 예제 (자주 하는 작업)
 
@@ -98,6 +118,10 @@ make test        # 세 stack 각각 terraform init -backend=false && terraform t
       display_name: hub-tmp-subnet            # OCI 표시 이름만 다르게 (키는 그대로)
 ```
 
+> [!WARNING]
+> subnet 의 `public` 과 `dns_label` 은 만든 뒤 바꾸면 **subnet 이 삭제 후 재생성**된다.
+> 안에 인스턴스나 LB 가 있으면 삭제가 실패하므로 처음에 정해 둔다.
+
 ### Route table (subnet 용)
 
 ```yaml
@@ -120,6 +144,10 @@ make test        # 세 stack 각각 terraform init -backend=false && terraform t
         - destination: 0.0.0.0/0
           target: igw:HUB_IGW
 ```
+
+> [!IMPORTANT]
+> `privateip:` target 은 그 IP 가 **실제로 있어야** plan 이 통과한다. FortiGate 같은 대상을 배포하기 전에는 `enabled: false` 로 두고,
+> 배포 후 `true` 로 바꿔 다시 apply 한다. 대상 VNIC 에는 **Skip source/destination check** 가 켜져 있어야 트래픽이 지나간다.
 
 ### Gateway 와 gateway 용 route table (hub)
 
@@ -173,8 +201,14 @@ make test        # 세 stack 각각 terraform init -backend=false && terraform t
 ```
 
 - SL / NSG 규칙은 source / destination 이 **1개씩**이다. 여러 대역이면 줄을 나눈다 (`destinations` 는 route rule 전용).
-- 기본은 stateful 이라 응답 트래픽은 자동 허용된다. `stateless: true` 일 때만 반대 방향 규칙이 필요하다.
-- subnet 의 `security_lists: [default, ...]` 로 붙인다. `default` 를 빼면 Default SL(SSH 22, egress 전체)이 빠진다.
+- subnet 의 `security_lists: [default, ...]` 로 붙인다.
+
+> [!TIP]
+> 기본은 stateful 이라 응답 트래픽은 자동 허용된다. `stateless: true` 일 때만 반대 방향 규칙을 따로 적는다.
+
+> [!WARNING]
+> subnet 의 `security_lists` 에서 `default` 를 빼면 Default SL 의 **egress 전체 허용도 같이 빠진다.**
+> 직접 만든 SL 에 egress 규칙이 없으면 그 subnet 에서 나가는 트래픽이 모두 막힌다.
 
 ### NSG — NSG 참조
 
@@ -198,9 +232,11 @@ make test        # 세 stack 각각 terraform init -backend=false && terraform t
         - { source: nsg:HUB_APP_NSG, protocol: tcp, port: "3306" }
 ```
 
-- `nsg:<이름>` 은 **같은 VCN 의 NSG 만** 된다. Security List 에서는 못 쓴다.
-- NSG 는 만들기만 하고 OCID 를 output `nsg_ids` 로 내보낸다. VNIC(인스턴스, LB)에 붙이는 것은 배포 쪽에서 한다.
+- `nsg:<이름>` 은 **같은 VCN 의 NSG 만** 된다. Security List 에서는 못 쓴다 (plan 단계에서 막힌다).
 - VNIC 에는 subnet 의 SL 과 NSG 규칙이 **합쳐서** 적용된다. 하나라도 허용하면 통과한다.
+
+> [!NOTE]
+> NSG 는 만들기만 하고 OCID 를 output `nsg_ids` 로 내보낸다. VNIC(인스턴스, LB)에 붙이는 것은 배포 쪽에서 한다.
 
 ### DRG route table (`config/drg.yaml`) 과 spoke attachment
 
@@ -256,7 +292,9 @@ STG_VCN:
       dns_label: app
 ```
 
-hub 쪽 `HUB_SGW_RT`, `HUB_FW_TRUST_PRI_RT`, `DRG_IPSEC_RT` 의 spoke 대역 목록에 `10.4.0.0/16` 을 추가해야 응답이 돌아온다.
+> [!IMPORTANT]
+> 새 spoke 의 대역(`10.4.0.0/16`)을 hub 쪽 `HUB_SGW_RT`, `HUB_FW_TRUST_PRI_RT`, `DRG_IPSEC_RT` 의 spoke 대역 목록에도 추가해야
+> 응답이 돌아온다. hub 를 먼저 `make apply-hub` 한 뒤 `make apply-stg` 한다.
 
 ### Compartment / bucket
 
@@ -282,8 +320,9 @@ buckets:
 
 ## 수정하면 재생성되는 항목
 
-apply 전에 plan 마지막 줄 `Plan: X to add, Y to change, Z to destroy` 의 **destroy 가 0 인지** 확인한다.
-0 이 아니면 `-/+` / `must be replaced` 가 붙은 리소스를 찾으면 원인이 나온다.
+> [!CAUTION]
+> `yes` 를 치기 전에 plan 마지막 줄 `Plan: X to add, Y to change, Z to destroy` 의 **destroy 가 0 인지** 확인한다.
+> 0 이 아니면 멈추고 `-/+` / `must be replaced` 가 붙은 리소스를 찾는다. 원인은 대부분 아래 표에 있다.
 
 | YAML 에서 바꾸는 것 | 결과 | 영향 |
 |---|---|---|
@@ -298,7 +337,10 @@ apply 전에 plan 마지막 줄 `Plan: X to add, Y to change, Z to destroy` 의 
 - route rule 추가 · 삭제 · `enabled`, SL / NSG 규칙, `display_name`, subnet 의 `route_table` · `security_lists`
 - VCN `cidrs` 에 대역 추가
 - subnet `cidr` — 시작 주소가 같아야 함 (`10.0.80.0/24` → `/23` 처럼 크기만). 쓰고 있는 IP 도 새 범위 안에 있어야 함
-- NSG 규칙을 목록 **중간에** 끼우면 뒤 규칙들이 순번 키(`<NSG>|ingress|<i>`)가 밀려 줄줄이 update. 삭제는 아니지만 **끝에 추가**를 권장
+- NSG 규칙을 목록 **중간에** 끼우면 뒤 규칙들이 순번 키(`<NSG>|ingress|<i>`)가 밀려 줄줄이 update 된다
+
+> [!TIP]
+> NSG 규칙은 목록 **끝에 추가**하면 plan 이 새 규칙 1개 생성으로 끝난다.
 
 근거: oracle/oci provider 의 `ForceNew` 필드 (`core_subnet_resource.go`, `core_vcn_resource.go`).
 SGW · IGW · DRG attachment · bucket 의 재생성 조건은 여기 정리하지 않았으니 plan 의 `-/+` 로 판단한다.
@@ -333,7 +375,9 @@ NSG 규칙은 `nsg:<이름>` 으로 **같은 VCN 의** 다른 NSG(또는 자기 
 `protocol`: all / tcp / udp / icmp. `port` = 목적지 포트, `source_port` = 출발지 포트 (`"53"` 또는 `"1024-65535"`, tcp/udp 만).
 
 **이름 규칙**: YAML 키가 곧 OCI 표시 이름이자 Terraform 식별자다.
-키를 바꾸면 **삭제 후 재생성**된다. 표시 이름만 바꾸려면 `display_name:` 을 쓴다.
+
+> [!WARNING]
+> YAML 키(리소스 이름)를 바꾸면 **삭제 후 재생성**된다. 표시 이름만 바꾸려면 키는 두고 `display_name:` 을 쓴다.
 
 **기본값**
 
@@ -347,6 +391,10 @@ NSG 규칙은 `nsg:<이름>` 으로 **같은 VCN 의** 다른 NSG(또는 자기 
 | SGW `services` | `all-services` |
 | `lock_default_security_list` | `false` (Default SL 의 기본 규칙 유지 — SSH 22 를 0.0.0.0/0 에서 허용) |
 | bucket | `NoPublicAccess`, `Standard`, versioning 끔 |
+
+> [!CAUTION]
+> Default Security List 는 **SSH 22 를 0.0.0.0/0 에서 허용**한다. public subnet 에 `default` 를 붙이면 SSH 가 인터넷에 열린다.
+> 필요 없으면 subnet 에서 `default` 를 빼거나 VCN 에 `lock_default_security_list: true` 를 쓴다.
 
 **bucket 은 compartment 로 stack 이 정해진다**: spoke VCN 의 compartment 에 속한 bucket 은 그 spoke stack,
 나머지는 hub stack 이 만든다.
@@ -370,7 +418,9 @@ config/ YAML 오류 4건
 게이트웨이 RT 의 target 제약, subnet CIDR 범위, 자기 VCN CIDR 를 DRG 로 보내는 rule, destination 중복,
 dns_label 형식, 이름 중복(attachment 포함), 포트 형식, DRG next_hop, VCN 파일당 1개.
 
-검사하지 않는 것: subnet 끼리 CIDR 겹침(apply 에서 OCI 가 거부), OCID 로 직접 쓴 target.
+> [!NOTE]
+> 검사하지 않는 것: subnet 끼리 CIDR 겹침(apply 에서 OCI 가 거부), OCID 로 직접 쓴 target,
+> route rule destination 과 SGW `services` 의 일치 여부(apply 에서 OCI 가 거부).
 
 ## 설계서 대비 변경 · 확인 필요
 
@@ -409,9 +459,13 @@ dns_label 형식, 이름 중복(attachment 포함), 포트 형식, DRG next_hop,
 - HUB_SGW_RT(DRG target)는 hub DRG attachment 보다 먼저 만들어진다. OCI 는 attach 되지 않은 DRG 를
   target 으로 받는다 (2026-11 실제 테넌시에서 이 순서 그대로 확인).
 - **스키마는 두 곳**: 타입은 `modules/network/variables.tf`, 허용 키 목록은 `modules/config/main.tf` 의 `allowed`.
-  Terraform 은 타입에 없는 키를 조용히 버리므로 키를 추가할 때는 두 곳을 같이 고친다.
 - spoke 는 hub 의 DRG 를 `external_drg_ids` / `external_drg_route_table_ids` 로 받는다.
   DRG route table 의 `next_hop` 은 hub stack 의 attachment 만 쓸 수 있다.
-- Compartment 는 `enable_delete = false` — destroy 해도 실제 compartment 는 남고 state 에서만 빠진다.
-  같은 이름의 compartment 가 이미 있으면 에러 없이 그것을 가져다 쓴다.
 - 수정 후에는 `make fmt && make test` 로 확인한다.
+
+> [!IMPORTANT]
+> YAML 키를 추가할 때는 `variables.tf` 의 타입과 `modules/config/main.tf` 의 `allowed` 를 **같이** 고친다.
+> Terraform 은 타입에 없는 키를 조용히 버리므로, 한쪽만 고치면 오류 없이 값이 무시된다.
+
+> [!NOTE]
+> Compartment 는 `enable_delete = false` 라 destroy 해도 OCI 에 남는다. 다시 apply 하면 같은 이름의 compartment 를 자동으로 가져다 쓴다.
