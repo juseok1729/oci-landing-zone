@@ -39,7 +39,7 @@ oci-hub-spoke-lz/
 ## 빠른 시작
 
 > [!IMPORTANT]
-> state 버킷은 Terraform 이 만들지 않는다. **Versioning 을 켠 버킷을 먼저 만들고** 시작한다.
+> state 버킷은 Terraform 이 만들지 않는다. **Versioning 을 활성화한 버킷을 먼저 만들고** 시작한다.
 > `backend.hcl` 에는 `key` 를 넣지 않는다 (i.e., stack 마다 `main.tf` 에 고정돼 있다).
 
 ```bash
@@ -149,7 +149,7 @@ make test        # 세 stack 각각 terraform init -backend=false && terraform t
 
 > [!IMPORTANT]
 > `privateip:` target 은 그 IP 가 **실제로 있어야** plan 이 통과한다. FortiGate 같은 대상을 배포하기 전에는 `enabled: false` 로 두고,
-> 배포 후 `true` 로 바꿔 다시 apply 한다. 대상 VNIC 에는 **Skip source/destination check** 가 켜져 있어야 트래픽이 지나간다.
+> 배포 후 `true` 로 바꿔 다시 apply 한다. 대상 VNIC 에는 **Skip source/destination check** 가 활성화되어 있어야 트래픽이 지나간다.
 
 ### Gateway 와 gateway 용 route table (hub)
 
@@ -424,29 +424,23 @@ dns_label 형식, 이름 중복(attachment 포함), 포트 형식, DRG next_hop,
 > 검사하지 않는 것: subnet 끼리 CIDR 겹침(apply 에서 OCI 가 거부), OCID 로 직접 쓴 target,
 > route rule destination 과 SGW `services` 의 일치 여부(apply 에서 OCI 가 거부).
 
-## 설계서 대비 변경 · 확인 필요
+## 운영시
 
-**수정한 것** (설명과 CIDR 가 맞지 않아 설명 기준으로 맞춤, YAML 에 `[설계서 수정]` 주석)
+**FortiGate 배포 후 활성화할 rule** (`config/vcns/hub.yaml`, 지금은 `enabled: false`)
 
-| 위치 | 설계서 | 반영 |
+| route table | rule | 역할 |
 |---|---|---|
-| PRD_PRI_RT "관리 VCN" | 10.1.0.0/16 (PRD 자기 CIDR) | 10.3.0.0/16 |
-| DEV_PRI_RT "관리 VCN" | 10.1.0.0/16 (운영 VCN) | 10.3.0.0/16 |
-| MGMT_PRI_RT "운영 VCN" | 10.3.0.0/16 (MGMT 자기 CIDR) | 10.1.0.0/16 |
-| HUB subnet 의 RT 이름 | `FW_*_RT` | `HUB_FW_*_RT` (route table 표 이름에 맞춤) |
-| subnet CIDR | 1/10/20/30… | 0/16/32/48… (/20 경계 정렬 → 각 subnet 을 in-place 로 /20 까지 확장 가능) |
+| `HUB_INGRESS_RT` | `0.0.0.0/0 → privateip:10.0.16.160` | spoke → 인터넷을 FortiGate 로 |
+| `HUB_INGRESS_RT` | spoke 대역 → `privateip:10.0.16.160` | spoke ↔ spoke 를 FortiGate 로 |
+| `HUB_INGRESS_RT` | `10.0.64.0/24 → privateip:10.0.16.160` | DRG → WAF 를 FortiGate 로 |
+| `HUB_FW_WAF_PRI_RT` | `0.0.0.0/0 → privateip:10.0.16.160` | WAF 의 응답을 FortiGate 로 |
 
-**확인 필요** (YAML 에 `enabled: false` 또는 `[확인 필요]` 로 표시)
+> [!WARNING]
+> `HUB_INGRESS_RT` 의 `10.0.64.0/24` rule 과 `HUB_FW_WAF_PRI_RT` 의 `0.0.0.0/0` rule 은 **같이** 활성화한다.
+> 하나만 활성화하면 가는 길과 오는 길이 달라져 FortiGate 가 세션을 버린다. 활성화 전 조건은 「예제 > Route table」의 privateip 항목을 본다.
 
-1. **spoke 의 인터넷/OSN 경로가 없음**: DRG_SPOKE_RT 가 0.0.0.0/0 → HUB 인데, spoke RT 에 0.0.0.0/0 → DRG 가 없어서
-   HUB_INGRESS_RT 의 OSN 경로와 HUB_SGW_RT 가 실제로 쓰이지 않는다. 각 spoke RT 에 `enabled: false` 로 넣어 둠
-2. **HUB_INGRESS_RT 에 FortiGate 경로가 없음**: spoke→인터넷, spoke↔spoke(PRD↔MGMT) 트래픽이 HUB 에서 버려진다.
-   `privateip:10.0.16.160` 으로 보내는 rule 을 `enabled: false` 로 넣어 둠
-3. **HUB_FW_WAF_PRI_RT 의 FortiGate port3 rule**: FortiGate 배포 전에는 private IP 가 없어 조회가 실패하므로
-   `enabled: false` 로 시작. FortiGate 배포 후 `true` 로 바꾸고 다시 apply
-4. **MGMT_BASTION_PUB_SBN**: 이름은 PUB 인데 MGMT_VCN 에 IGW 가 없음. OCI Bastion 서비스용이면 private 으로 충분
-5. **Security List**: 설계서에 없어 대부분의 subnet 이 VCN Default Security List(SSH 22 전체 허용 포함)를 쓴다.
-   `security_lists` 를 정의하거나 VCN 에 `lock_default_security_list: true` 로 기본 규칙을 비울 수 있다
+**subnet CIDR 규칙**: 세 번째 옥텟을 16 단위(0/16/32/48 …)로 잡는다 (i.e., 각 subnet 이 /20 경계에서 시작).
+그래서 쓰는 중에도 각 subnet 을 같은 시작 주소로 /20 까지 in-place 확장할 수 있다. cf. 「수정하면 재생성되는 항목」의 subnet `cidr`.
 
 **범위 밖**: FortiGate/WAPPLES 인스턴스, IPSec(HQ VPN), Service Connector(syslog → bucket), DNS resolver endpoint.
 `DRG_IPSEC_RT` 는 만들어 두었으니 IPSec 연결 후 해당 attachment 에 지정하면 된다.
