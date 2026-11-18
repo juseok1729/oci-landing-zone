@@ -42,3 +42,11 @@ output "config_errors" {
   description = "YAML 정합성 오류 목록 (비어 있어야 정상)"
   value       = local.config_errors
 }
+
+output "rule_destinations" {
+  description = "route table 이름 → 펼친 destination 목록 (spokes 가 무엇으로 펼쳐졌는지 확인용)"
+  value = {
+    vcn = { for k, r in local.rt_all : k => [for x in r.rules : x.destination] }
+    drg = { for k, _ in local.drg_rt : k => sort([for x in values(local.drg_rt_rules) : x.destination if x.rt_key == k]) }
+  }
+}

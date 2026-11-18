@@ -118,7 +118,7 @@ locals {
   err_route_rule = flatten([
     for r in local.rt_rules_flat : concat(
       contains(local.service_keywords, r.destination) || can(cidrhost(r.destination, 0)) ? [] : [
-        "route table ${r.rt_key}: destination '${r.destination}' 형식 오류 (CIDR 또는 all-services / objectstorage)"
+        "route table ${r.rt_key}: destination '${r.destination}' 형식 오류 (CIDR 또는 all-services / objectstorage / spokes)"
       ],
 
       (
@@ -172,7 +172,7 @@ locals {
   # ── DRG route rule ─────────────────────────────────────────
   err_drg_rule = flatten([
     for k, r in local.drg_rt_rules : concat(
-      can(cidrhost(r.destination, 0)) ? [] : ["DRG route table ${r.rt_key}: destination '${r.destination}' 형식 오류"],
+      can(cidrhost(r.destination, 0)) ? [] : ["DRG route table ${r.rt_key}: destination '${r.destination}' 형식 오류 (CIDR 또는 spokes)"],
       try(local.drga[r.next_hop].drg_key == r.drg_key, false) ? [] : ["DRG route table ${r.rt_key}: next_hop '${r.next_hop}' 은 ${r.drg_key} 의 attachment 가 아닙니다 (hub stack 의 attachment 만 가능)"]
     )
   ])

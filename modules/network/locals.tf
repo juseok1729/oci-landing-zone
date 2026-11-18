@@ -90,7 +90,7 @@ locals {
     )
   ])
 
-  # rule 은 destination 1개 = OCI rule 1개로 펼침
+  # rule 은 destination 1개 = OCI rule 1개로 펼침.  spokes 는 spoke VCN CIDR 들로 (자기 VCN CIDR 은 뺀다)
   rt_all = merge([
     for r in local.rt_raw : {
       (r.key) = {
@@ -100,7 +100,10 @@ locals {
         compartment_id = lookup(var.compartment_ids, coalesce(r.compartment, r.vcn_cmp), coalesce(r.compartment, r.vcn_cmp))
         rules = flatten([
           for rule in r.rules : [
-            for d in concat(rule.destination == null ? [] : [rule.destination], rule.destinations) : {
+            for d in flatten([
+              for x in concat(rule.destination == null ? [] : [rule.destination], rule.destinations) :
+              x == "spokes" ? [for c in var.spoke_cidrs : c if !contains(local.vcn[r.vcn_key].cidrs, c)] : [x]
+              ]) : {
               destination = d
               target      = rule.target
               description = rule.description
@@ -218,7 +221,10 @@ locals {
     for dk, d in var.drgs : [
       for rk, r in d.route_tables : [
         for rule in r.rules : {
-          for dest in concat(rule.destination == null ? [] : [rule.destination], rule.destinations) :
+          for dest in flatten([
+            for x in concat(rule.destination == null ? [] : [rule.destination], rule.destinations) :
+            x == "spokes" ? var.spoke_cidrs : [x]
+          ]) :
           "${rk}|${dest}" => {
             rt_key      = rk
             drg_key     = dk

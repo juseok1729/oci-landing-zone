@@ -26,6 +26,13 @@ variable "external_drg_route_table_ids" {
   default     = {}
 }
 
+variable "spoke_cidrs" {
+  description = "spoke VCN CIDR 전체 (config/vcns 의 hub 외 파일). route rule destination 의 spokes 를 이 목록으로 펼친다"
+  type        = list(string)
+  default     = []
+  nullable    = false
+}
+
 variable "vcns" {
   description = "config/vcns/<파일>.yaml 내용 (키 = VCN 이름)"
   default     = {}
