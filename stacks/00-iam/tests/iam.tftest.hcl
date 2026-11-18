@@ -11,7 +11,7 @@ run "design_config_applies" {
   command = apply
 
   assert {
-    condition     = length(output.compartment_ids) == 4
-    error_message = "compartment 는 4개(HUB/PRD/DEV/MGMT)여야 합니다."
+    condition     = sort(keys(output.compartment_ids)) == sort(keys(yamldecode(file("../../config/compartments.yaml")).compartments))
+    error_message = "compartments.yaml 의 compartment 가 모두 만들어져야 합니다: ${join(", ", keys(output.compartment_ids))}"
   }
 }

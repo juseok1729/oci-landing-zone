@@ -25,12 +25,11 @@ override_data {
   target = data.terraform_remote_state.iam
   values = {
     outputs = {
-      compartment_ids = {
-        HUB_COMP  = "ocid1.compartment.oc1..hub"
-        PRD_COMP  = "ocid1.compartment.oc1..prd"
-        DEV_COMP  = "ocid1.compartment.oc1..dev"
-        MGMT_COMP = "ocid1.compartment.oc1..mgmt"
-      }
+      # config/compartments.yaml 의 이름 그대로 (+ tests/fixtures 전용 TEST_COMP). compartment 를 바꿔도 테스트는 안 고친다
+      compartment_ids = merge(
+        { TEST_COMP = "ocid1.compartment.oc1..test" },
+        { for k, _ in yamldecode(file("../../config/compartments.yaml")).compartments : k => "ocid1.compartment.oc1..${lower(k)}" }
+      )
     }
   }
 }
@@ -61,8 +60,8 @@ run "design_config_applies" {
     error_message = "사용자 정의 DRG route table 은 2개(DRG_SPOKE_RT, DRG_IPSEC_RT)여야 합니다."
   }
   assert {
-    condition     = length(output.bucket_names) == 0
-    error_message = "현재 bucket 은 모두 spoke compartment 소속이라 hub 는 0개여야 합니다."
+    condition     = sort(keys(output.bucket_names)) == sort(keys(yamldecode(file("../../config/buckets.yaml")).buckets))
+    error_message = "bucket 은 모두 hub 가 만든다: buckets.yaml 의 bucket 이 전부 있어야 합니다 (지금 ${length(output.bucket_names)}개)."
   }
   assert {
     condition     = length(output.security_list_ids) == 4 && length(output.nsg_ids) == 2
@@ -88,6 +87,37 @@ run "gateway_rt_constraints_rejected" {
 
   variables {
     config_dir = "../../tests/fixtures/broken-hub"
+  }
+
+  expect_failures = [
+    terraform_data.config_check,
+  ]
+}
+
+run "spokes_alias_expands" {
+  command = apply
+
+  variables {
+    config_dir = "../../tests/fixtures/spokes"
+  }
+
+  assert {
+    condition     = join(",", output.rule_destinations.vcn["HUB_SGW_RT"]) == "10.1.0.0/16,10.2.0.0/16,10.3.0.0/16"
+    error_message = "HUB_SGW_RT 의 spokes 는 spoke CIDR 3개로 펼쳐져야 합니다: ${join(",", output.rule_destinations.vcn["HUB_SGW_RT"])}"
+  }
+  assert {
+    condition     = join(",", output.rule_destinations.drg["DRG_IPSEC_RT"]) == "10.0.0.0/16,10.1.0.0/16,10.2.0.0/16,10.3.0.0/16"
+    error_message = "DRG_IPSEC_RT 는 10.0.0.0/16 + spokes 3개여야 합니다: ${join(",", output.rule_destinations.drg["DRG_IPSEC_RT"])}"
+  }
+}
+
+# iam 을 apply 하기 전(빈 state): Unsupported attribute 대신 config_check 의 안내 메시지로 멈춰야 한다
+run "iam_not_applied" {
+  command = plan
+
+  override_data {
+    target = data.terraform_remote_state.iam
+    values = { outputs = {} }
   }
 
   expect_failures = [

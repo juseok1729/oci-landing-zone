@@ -1,0 +1,9 @@
+# destination: spokes 가 hub 외 VCN 파일(a, b)의 CIDR 로 펼쳐지는지 (hub · spoke 테스트 공용)
+drgs:
+  HUB_DRG:
+    compartment: TEST_COMP
+    route_tables:
+      DRG_IPSEC_RT:
+        rules:
+          - destinations: [10.0.0.0/16, spokes]   # → 10.0 + 10.1 + 10.2 + 10.3
+            next_hop: HUB_DRG_ATT

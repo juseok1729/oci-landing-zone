@@ -1,6 +1,6 @@
 # 일부러 틀린 설정 (i.e., 게이트웨이 RT 제약 위반). 모두 plan 단계에서 걸러져야 함
 HUB_VCN:
-  compartment: HUB_COMP
+  compartment: TEST_COMP
   cidrs: [10.0.0.0/16]
 
   internet_gateways:

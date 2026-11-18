@@ -1,0 +1,15 @@
+HUB_VCN:
+  compartment: TEST_COMP
+  cidrs: [10.0.0.0/16]
+
+  service_gateways:
+    HUB_SGW:
+      route_table:
+        name: HUB_SGW_RT
+        rules:
+          - destination: spokes                   # → 10.1 + 10.2 + 10.3
+            target: drg:HUB_DRG
+
+  drg_attachment:
+    name: HUB_DRG_ATT
+    drg: HUB_DRG

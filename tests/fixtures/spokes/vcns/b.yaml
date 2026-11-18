@@ -1,0 +1,3 @@
+B_VCN:
+  compartment: TEST_COMP
+  cidrs: [10.2.0.0/16, 10.3.0.0/16]

@@ -1,5 +1,5 @@
 #
-# 10-hub : DRG(+ DRG route table) · HUB_VCN(config/vcns/hub.yaml) · spoke 에 속하지 않은 bucket
+# 10-hub : DRG(+ DRG route table) · HUB_VCN(config/vcns/hub.yaml) · bucket 전부(config/buckets.yaml)
 #   spoke stack 은 이 state 의 drg_ids / drg_route_table_ids 를 읽어 DRG 에 attach 한다.
 #
 terraform {
@@ -48,13 +48,12 @@ module "config" {
 }
 
 locals {
-  compartment_ids = data.terraform_remote_state.iam.outputs.compartment_ids
+  # 앞 stack(iam) 이 비어 있으면 Unsupported attribute 로 죽지 않고 config_check 의 안내 메시지로 멈춘다
+  iam_ready       = can(data.terraform_remote_state.iam.outputs.compartment_ids)
+  compartment_ids = try(data.terraform_remote_state.iam.outputs.compartment_ids, {})
 
-  # spoke VCN 의 compartment 에 속한 bucket 은 그 spoke stack 이, 나머지는 hub 가 만든다
-  spoke_compartments = distinct(flatten([
-    for f, d in module.config.vcn_files : [for v in values(d) : try(v.compartment, "")] if f != local.vcn_file
-  ]))
-  buckets = try({ for k, b in module.config.buckets : k => b if !contains(local.spoke_compartments, try(b.compartment, "")) }, null)
+  # route rule 의 destination: spokes → hub 외 VCN 파일들의 CIDR
+  spoke_cidrs = sort(flatten([for f, d in module.config.vcn_files : [for v in values(d) : try(v.cidrs, [])] if f != local.vcn_file]))
 
   tags = { ManagedBy = "terraform", Stack = "hub" }
 }
@@ -63,6 +62,7 @@ module "network" {
   source = "../../modules/network"
 
   compartment_ids = local.compartment_ids
+  spoke_cidrs     = local.spoke_cidrs
   vcns            = try(module.config.vcn_files[local.vcn_file], {})
   drgs            = module.config.drgs
   freeform_tags   = local.tags
@@ -73,12 +73,13 @@ module "buckets" {
 
   tenancy_ocid    = var.tenancy_ocid
   compartment_ids = local.compartment_ids
-  buckets         = local.buckets
+  buckets         = module.config.buckets
   freeform_tags   = local.tags
 }
 
 locals {
   config_errors = concat(
+    local.iam_ready ? [] : ["iam stack 이 아직 apply 되지 않았습니다: make apply-iam 을 먼저 실행하세요"],
     contains(keys(module.config.vcn_files), local.vcn_file) ? [] : ["config/vcns/${local.vcn_file}.yaml 이 없습니다"],
     module.config.errors.drg,
     module.config.errors.buckets,
@@ -139,4 +140,9 @@ output "drg_attachment_ids" {
 
 output "bucket_names" {
   value = module.buckets.bucket_names
+}
+
+output "rule_destinations" {
+  description = "route table 이름 → 펼친 destination 목록 (spokes 확인용)"
+  value       = module.network.rule_destinations
 }

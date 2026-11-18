@@ -53,7 +53,7 @@ output "bucket_names" {
 output "config_errors" {
   value = concat(
     [
-      for k, b in var.buckets : "bucket ${k}: compartment '${b.compartment}' 가 compartments.yaml 에 없습니다"
+      for k, b in var.buckets : "bucket ${k}: compartment '${b.compartment}' 가 없습니다 (compartments.yaml 과 00-iam apply 확인)"
       if !contains(keys(var.compartment_ids), b.compartment) && !startswith(b.compartment, "ocid1.")
     ],
     [

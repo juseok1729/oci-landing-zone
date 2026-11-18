@@ -1,6 +1,6 @@
 # FortiGate VIP(10.0.10.160)를 target 으로 쓰는 rule 이 활성화된 최소 구성
 HUB_VCN:
-  compartment: HUB_COMP
+  compartment: TEST_COMP
   cidrs: [10.0.0.0/16]
   dns_label: hub
 

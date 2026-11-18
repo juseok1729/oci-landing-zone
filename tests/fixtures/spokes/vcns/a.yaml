@@ -1,0 +1,13 @@
+A_VCN:
+  compartment: TEST_COMP
+  cidrs: [10.1.0.0/16]
+
+  drg_attachment:
+    name: A_DRG_ATT
+    drg: HUB_DRG
+
+  route_tables:
+    A_RT:
+      rules:
+        - destination: spokes                     # → 자기 10.1 은 빠지고 10.2 + 10.3
+          target: drg:HUB_DRG

@@ -1,5 +1,5 @@
 #
-# 20-spoke : spoke VCN 1개 + 그 compartment 의 bucket.  workspace 이름 = config/vcns/<파일> 이름
+# 20-spoke : spoke VCN 1개 (bucket 은 hub stack 이 만든다).  workspace 이름 = config/vcns/<파일> 이름
 #   terraform workspace select prd   →  config/vcns/prd.yaml  (state 도 workspace 별로 분리)
 #
 terraform {
@@ -55,13 +55,16 @@ module "config" {
 }
 
 locals {
-  spoke_files     = [for f in keys(module.config.vcn_files) : f if f != "hub"]
-  vcn_file_ok     = contains(local.spoke_files, coalesce(local.vcn_file, "-"))
-  vcns            = try(module.config.vcn_files[local.vcn_file_ok ? local.vcn_file : "-"], {})
-  compartment_ids = data.terraform_remote_state.iam.outputs.compartment_ids
+  spoke_files = [for f in keys(module.config.vcn_files) : f if f != "hub"]
+  vcn_file_ok = contains(local.spoke_files, coalesce(local.vcn_file, "-"))
+  vcns        = try(module.config.vcn_files[local.vcn_file_ok ? local.vcn_file : "-"], {})
+  # 앞 stack(iam, hub) 이 비어 있으면 Unsupported attribute 로 죽지 않고 config_check 의 안내 메시지로 멈춘다
+  iam_ready       = can(data.terraform_remote_state.iam.outputs.compartment_ids)
+  hub_ready       = can(data.terraform_remote_state.hub.outputs.drg_ids)
+  compartment_ids = try(data.terraform_remote_state.iam.outputs.compartment_ids, {})
 
-  vcn_compartments = distinct([for v in values(local.vcns) : try(v.compartment, "")])
-  buckets          = try({ for k, b in module.config.buckets : k => b if contains(local.vcn_compartments, try(b.compartment, "")) }, null)
+  # route rule 의 destination: spokes → spoke VCN CIDR 전체 (자기 VCN 것은 network module 이 뺀다)
+  spoke_cidrs = sort(flatten([for f in local.spoke_files : [for v in values(module.config.vcn_files[f]) : try(v.cidrs, [])]]))
 
   tags = { ManagedBy = "terraform", Stack = coalesce(local.vcn_file, "-") }
 }
@@ -70,29 +73,21 @@ module "network" {
   source = "../../modules/network"
 
   compartment_ids              = local.compartment_ids
-  vcns                         = local.vcns
-  external_drg_ids             = data.terraform_remote_state.hub.outputs.drg_ids
-  external_drg_route_table_ids = data.terraform_remote_state.hub.outputs.drg_route_table_ids
+  spoke_cidrs                  = local.spoke_cidrs
+  vcns                         = local.hub_ready ? local.vcns : {} # DRG 가 없으면 attachment · route 를 계획할 수 없다
+  external_drg_ids             = try(data.terraform_remote_state.hub.outputs.drg_ids, {})
+  external_drg_route_table_ids = try(data.terraform_remote_state.hub.outputs.drg_route_table_ids, {})
   freeform_tags                = local.tags
-}
-
-module "buckets" {
-  source = "../../modules/buckets"
-
-  tenancy_ocid    = var.tenancy_ocid
-  compartment_ids = local.compartment_ids
-  buckets         = local.buckets
-  freeform_tags   = local.tags
 }
 
 locals {
   config_errors = concat(
+    local.iam_ready ? [] : ["iam stack 이 아직 apply 되지 않았습니다: make apply-iam 을 먼저 실행하세요"],
+    local.hub_ready ? [] : ["hub stack 이 아직 apply 되지 않았습니다: make apply-hub 를 먼저 실행하세요"],
     local.vcn_file_ok ? [] : ["workspace 를 spoke VCN 파일 이름(${join(" / ", local.spoke_files)})으로 선택하세요: terraform workspace select <이름> (지금: ${terraform.workspace})"],
-    module.config.errors.buckets,
     local.vcn_file_ok ? module.config.errors.vcns[local.vcn_file] : [],
     module.config.errors.cross,
-    module.network.config_errors,
-    module.buckets.config_errors
+    module.network.config_errors
   )
 }
 
@@ -133,6 +128,7 @@ output "drg_attachment_ids" {
   value = module.network.drg_attachment_ids
 }
 
-output "bucket_names" {
-  value = module.buckets.bucket_names
+output "rule_destinations" {
+  description = "route table 이름 → 펼친 destination 목록 (spokes 확인용)"
+  value       = module.network.rule_destinations
 }
