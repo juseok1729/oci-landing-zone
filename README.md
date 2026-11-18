@@ -7,26 +7,28 @@
 
 **YAML 이 설계서이고, Terraform 은 그 YAML 을 읽어 리소스로 바꾸는 범용 엔진이다.**
 실제 값(CIDR, 이름, 규칙)은 전부 `config/` 에 있고, `.tf` 코드는 YAML 을 읽어 `for_each` 로 리소스를 만드는 역할만 한다.
-그래서 설계서의 HUB / PRD / DEV / MGMT 구조를 **YAML 만 고쳐서** 운영한다.
+그래서 설계서의 구조(compartment HUB / E-COMMERCE / ERP / MGMT, VCN 6개)를 **YAML 만 고쳐서** 운영한다.
 
 > [!IMPORTANT]
 > 팀원은 `config/` 아래 YAML 만 수정한다. `modules/` · `stacks/` 는 관리자(owner)만 손댄다.
 
 ```
-oci-hub-spoke-lz/
+oci-landing-zone/
 ├── config/                 ← 일상 변경은 여기만
 │   ├── compartments.yaml
 │   ├── drg.yaml            DRG, DRG route table
 │   ├── buckets.yaml
 │   └── vcns/
 │       ├── hub.yaml        VCN 1개 = 파일 1개 = stack 1개
-│       ├── prd.yaml
-│       ├── dev.yaml
+│       ├── ec-prd.yaml     hub 외 파일은 전부 spoke (파일 이름 = workspace 이름 = make target)
+│       ├── ec-dev.yaml
+│       ├── erp-prd.yaml
+│       ├── erp-dev.yaml
 │       └── mgmt.yaml
 ├── stacks/                 state 를 나눈 실행 단위 (얇은 루트 모듈)
 │   ├── 00-iam/             compartment            (홈 리전)        state: lz/iam.tfstate
-│   ├── 10-hub/             DRG · HUB_VCN · bucket                  state: lz/hub.tfstate
-│   └── 20-spoke/           spoke VCN · bucket     (workspace 별)   state: tf-state-env/<prd|dev|mgmt>/lz/spoke.tfstate
+│   ├── 10-hub/             DRG · HUB_VCN · bucket 전부             state: lz/hub.tfstate
+│   └── 20-spoke/           spoke VCN              (workspace 별)   state: tf-state-env/<spoke 이름>/lz/spoke.tfstate
 ├── modules/
 │   ├── config/             YAML 읽기 + 알 수 없는 키(오타) 검사
 │   ├── compartments/
@@ -47,12 +49,23 @@ cp terraform.tfvars.example terraform.tfvars   # tenancy_ocid, region, profile, 
 cp backend.hcl.example backend.hcl             # state 버킷 (미리 생성 + Versioning). key 는 넣지 않음
 
 make init
-make apply-iam        # 1. compartment
-make apply-hub        # 2. DRG, HUB_VCN
-make apply-prd        # 3. spoke (dev, mgmt 도 같은 방식)
-# 또는 make apply-all  (iam → hub → prd → dev → mgmt 순서)
+make apply-iam        # 1. compartment (HUB, E-COMMERCE, ERP, MGMT)
+make apply-hub        # 2. DRG, DRG route table, HUB_VCN, bucket 전부
+make apply-ec-prd     # 3. spoke (ec-dev, erp-prd, erp-dev, mgmt 도 같은 방식. spoke 끼리는 순서 무관)
+# 또는 make apply-all  (iam → hub → spoke 전부. stack 마다 yes 를 묻는다)
 # 삭제: make destroy-all (역순. compartment 는 state 에서만 빠지고 OCI 에 남음. cf. enable_delete = false)
 ```
+
+지금 config 기준 stack 은 아래와 같다. spoke 의 make target 은 `config/vcns` 파일 이름에서 나온다.
+
+| VCN 파일 | compartment | CIDR | 실행 |
+|---|---|---|---|
+| `hub.yaml` | HUB | `10.0.0.0/16` | `make apply-hub` |
+| `ec-prd.yaml` | E-COMMERCE | `10.1.0.0/16` | `make apply-ec-prd` |
+| `ec-dev.yaml` | E-COMMERCE | `10.2.0.0/16` | `make apply-ec-dev` |
+| `mgmt.yaml` | MGMT | `10.3.0.0/16` | `make apply-mgmt` |
+| `erp-prd.yaml` | ERP | `10.4.0.0/16` | `make apply-erp-prd` |
+| `erp-dev.yaml` | ERP | `10.5.0.0/16` | `make apply-erp-dev` |
 
 > [!TIP]
 > `make apply-*` 는 plan 을 먼저 보여 주고 `yes` 를 기다린다. 따로 `make plan-*` 을 돌릴 필요는 없다.
@@ -60,7 +73,7 @@ make apply-prd        # 3. spoke (dev, mgmt 도 같은 방식)
 
 > [!WARNING]
 > stack 은 **iam → hub → spoke** 순서로 apply 한다. 뒤 stack 은 앞 stack 의 state(output)를 읽으므로,
-> 앞 stack 을 apply 하기 전에는 뒤 stack 의 plan 이 실패한다. 삭제는 반대 순서(spoke → hub → iam)다.
+> 앞 stack 을 apply 하기 전에는 뒤 stack 의 plan 이 `make apply-iam 을 먼저 실행하세요` 같은 메시지로 멈춘다. 삭제는 반대 순서(spoke → hub → iam)다.
 
 - Terraform **1.12 이상** (native `oci` backend). provider 버전은 각 stack 의 `.terraform.lock.hcl` 로 고정 (oracle/oci 9.x)
 - 의존 방향은 **iam → hub → spoke** 하나뿐이다. 뒤 stack 은 앞 stack 의 output 을 `terraform_remote_state` 로 읽는다
@@ -69,11 +82,13 @@ make apply-prd        # 3. spoke (dev, mgmt 도 같은 방식)
 - spoke 는 `stacks/20-spoke` 하나를 **workspace 로 나눠** 쓴다. workspace 이름 = `config/vcns/<이름>.yaml`.
   Makefile 이 `workspace select` 를 대신 한다. 직접 실행하는 명령어는 아래와 같다.
   ```bash
-  cd stacks/20-spoke && terraform workspace select -or-create prd && terraform plan -var-file=../../terraform.tfvars
+  cd stacks/20-spoke && terraform workspace select -or-create ec-prd && terraform plan -var-file=../../terraform.tfvars
   ```
-- 새 spoke VCN 은 `config/vcns/<이름>.yaml` 을 추가하고 `make apply-<이름>` (Makefile 의 `SPOKES` 에도 추가)
+- workspace 는 state 버킷의 `tf-state-env/<이름>/lz/spoke.tfstate` 파일이다 (iam · hub 는 workspace 없이 `lz/` 바로 아래).
+  목록은 `terraform -chdir=stacks/20-spoke workspace list`, 정리는 `workspace delete <이름>` 이다 (리소스가 남은 state 는 거부된다).
+- 새 spoke VCN 은 `config/vcns/<이름>.yaml` 을 추가하고 `make apply-<이름>` (Makefile 이 `config/vcns` 에서 spoke 목록을 찾는다)
 - Compartment(IAM)는 홈 리전에서만 생성된다. 리소스 리전과 홈 리전이 다르면 `home_region` 지정
-- 모든 리소스에 `ManagedBy=terraform`, `Stack=<iam|hub|prd|...>` freeform tag 가 붙는다.
+- 모든 리소스에 `ManagedBy=terraform`, `Stack=<iam|hub|ec-prd|...>` freeform tag 가 붙는다.
 
 > [!CAUTION]
 > `ManagedBy=terraform` 태그가 붙은 리소스를 **콘솔에서 직접 고치지 않는다.** 다음 apply 때 YAML 내용으로 되돌아간다.
@@ -86,11 +101,11 @@ make test        # 세 stack 각각 terraform init -backend=false && terraform t
 
 | stack | 확인하는 것 |
 |---|---|
-| 00-iam | compartment 4개 |
-| 10-hub | 실제 `hub.yaml` apply 그래프 (subnet 6, RT 7, DRG 1, attachment 1, SL 4, NSG 2), privateip target · NSG · source_port, 게이트웨이 RT 제약 위반 거부 |
-| 20-spoke | prd · dev · mgmt apply (subnet · RT · attachment · bucket · NSG 개수), hub 파일 선택 거부, 잘못된 YAML(`tests/fixtures/broken`) 거부 |
+| 00-iam | `compartments.yaml` 의 compartment 가 모두 만들어지는지 |
+| 10-hub | 실제 `hub.yaml` apply 그래프 (subnet 6, RT 7, DRG 1, attachment 1, SL 4, NSG 2, `buckets.yaml` 의 bucket 전부), privateip target · NSG · source_port, 게이트웨이 RT 제약 위반 거부, `spokes` 펼침(`tests/fixtures/spokes`) |
+| 20-spoke | ec-prd · ec-dev · erp-prd · erp-dev · mgmt apply (subnet · RT · attachment · NSG 개수), hub 파일 선택 거부, 잘못된 YAML(`tests/fixtures/broken`) 거부, `spokes` 에서 자기 대역 제외 |
 
-다른 stack 의 state 는 테스트에서 `override_data` 로 대신한다.
+다른 stack 의 state 는 테스트에서 `override_data` 로 대신한다. mock `compartment_ids` 는 `config/compartments.yaml` 의 이름을 그대로 쓰고, `tests/fixtures` 는 전용 이름 `TEST_COMP` 를 쓴다.
 
 > [!NOTE]
 > `make test` 는 OCI 에 연결하지 않고(mock provider), 선택된 workspace 와 상관없이 `default` workspace 로 돈다.
@@ -133,7 +148,10 @@ make test        # 세 stack 각각 terraform init -backend=false && terraform t
         - destination: 192.168.10.0/24                          # 대상 1개 → destination
           target: drg:HUB_DRG
           description: "HQ VPN"
-        - destinations: [10.1.0.0/16, 10.2.0.0/16, 10.3.0.0/16] # 대상 여러 개 → destinations (같은 target)
+        - destinations: [10.1.0.0/16, 10.2.0.0/16]             # 대상 여러 개 → destinations (같은 target)
+          target: drg:HUB_DRG
+          description: "ec-prd · ec-dev VCN"
+        - destination: spokes                                   # spoke VCN CIDR 전체 (config/vcns 의 hub 외 파일)
           target: drg:HUB_DRG
           description: "spoke VCN"
         - destination: all-services                             # OCI 서비스 전체(OSN) → SGW. SGW services 와 같아야 함
@@ -163,7 +181,7 @@ make test        # 세 stack 각각 terraform init -backend=false && terraform t
       route_table:                            # SGW 로 들어온 응답이 갈 곳. target 은 drg: / privateip: 만
         name: HUB_SGW_RT
         rules:
-          - destinations: [10.1.0.0/16, 10.2.0.0/16, 10.3.0.0/16]
+          - destination: spokes
             target: drg:HUB_DRG
 
   drg_attachment:
@@ -175,7 +193,7 @@ make test        # 세 stack 각각 terraform init -backend=false && terraform t
       rules:
         - destination: all-services
           target: sgw:HUB_SGW
-        - destinations: [10.1.0.0/16, 10.2.0.0/16]
+        - destination: spokes                 # spoke ↔ spoke 를 FortiGate 로
           target: privateip:10.0.16.160
           enabled: false
 ```
@@ -240,13 +258,53 @@ make test        # 세 stack 각각 terraform init -backend=false && terraform t
 > [!NOTE]
 > NSG 는 만들기만 하고 OCID 를 output `nsg_ids` 로 내보낸다. VNIC(인스턴스, LB)에 붙이는 것은 배포 쪽에서 한다.
 
+### spoke 대역 한 번에 쓰기 (`spokes`)
+
+spoke 대역을 CIDR 로 나열하는 대신 `spokes` 라고 쓴다. `config/vcns` 의 hub 외 파일에 있는 VCN CIDR 전부로 펼쳐지므로
+spoke 를 추가 · 삭제해도 이 rule 은 고치지 않는다.
+
+```yaml
+# config/vcns/hub.yaml: OSN 응답을 spoke 전체로
+  service_gateways:
+    HUB_SGW:
+      route_table:
+        name: HUB_SGW_RT
+        rules:
+          - destination: spokes                   # → 10.1 · 10.2 · 10.3 · 10.4 · 10.5 (/16)
+            target: drg:HUB_DRG
+```
+
+```yaml
+# config/vcns/mgmt.yaml: spoke 안에서 쓰면 자기 대역은 빠진다
+    MGMT_BASTION_PUB_RT:
+      rules:
+        - destinations: [10.0.0.0/16, spokes]     # → 10.0 · 10.1 · 10.2 · 10.4 · 10.5 (MGMT 의 10.3 은 빠짐)
+          target: drg:HUB_DRG
+```
+
+| 쓴 곳 | 쓴 값 | 펼친 결과 (지금 config, 모두 `/16`) |
+|---|---|---|
+| hub 의 route rule | `spokes` | `10.1` · `10.2` · `10.3` · `10.4` · `10.5` |
+| mgmt 의 route rule | `[10.0.0.0/16, spokes]` | `10.0` · `10.1` · `10.2` · `10.4` · `10.5` |
+| `drg.yaml` 의 DRG route rule | `[10.0.0.0/16, spokes]` | `10.0` · `10.1` · `10.2` · `10.3` · `10.4` · `10.5` |
+
+펼친 결과는 plan 의 `Changes to Outputs` 에 `rule_destinations` 로 나온다. apply 뒤에는 아래 명령어로 다시 본다.
+
+```bash
+terraform -chdir=stacks/10-hub output rule_destinations
+```
+
+> [!NOTE]
+> `spokes` 는 route rule(VCN · DRG) 전용이다. SL / NSG 규칙에 쓰면 형식 오류로 막힌다.
+> `spokes` 에 hub 대역(`10.0.0.0/16`)은 들어가지 않는다. 필요하면 위처럼 따로 적고, `spokes` 와 같은 대역을 또 적으면 중복 destination 오류가 난다.
+
 ### DRG route table (`config/drg.yaml`) 과 spoke attachment
 
 ```yaml
 # config/drg.yaml
 drgs:
   HUB_DRG:
-    compartment: HUB_COMP
+    compartment: HUB
     route_tables:
       DRG_SPOKE_RT:
         rules:
@@ -254,26 +312,41 @@ drgs:
             next_hop: HUB_DRG_ATT             # DRG attachment 이름 (hub stack 의 attachment 만)
       DRG_IPSEC_RT:
         rules:
-          - destinations: [10.0.0.0/16, 10.1.0.0/16, 10.2.0.0/16, 10.3.0.0/16]
+          - destinations: [10.0.0.0/16, spokes]   # HUB + spoke 전체
             next_hop: HUB_DRG_ATT
 ```
 
 ```yaml
-# config/vcns/prd.yaml
+# config/vcns/ec-prd.yaml
   drg_attachment:
-    name: PRD_DRG_ATT
+    name: EC_PRD_DRG_ATT
     drg: HUB_DRG                              # hub stack 이 만든 DRG
     drg_route_table: DRG_SPOKE_RT
 ```
 
 ### 새 spoke VCN
 
-`config/vcns/stg.yaml` 을 만들고 Makefile 의 `SPOKES` 에 `stg` 를 추가한 뒤 `make apply-stg`.
+`config/vcns/stg.yaml` 을 만들고 `make apply-stg`. Makefile 은 고치지 않는다 (i.e., `config/vcns` 의 hub 외 파일이 곧 spoke 목록이다).
+순서는 아래와 같다.
+
+```bash
+# 1. 새 compartment 를 쓰면 config/compartments.yaml 에 STG 를 추가하고
+make apply-iam
+
+# 2. config/vcns/stg.yaml 작성 (아래 예시) + stacks/20-spoke/tests/spoke.tftest.hcl 에 run 추가 (ec_prd_applies 복사)
+make test
+
+# 3. hub 먼저: spokes 로 적은 rule 에 10.6.0.0/16 이 추가되는지 plan 의 rule_destinations 로 확인
+make apply-hub
+
+# 4. 새 spoke
+make apply-stg
+```
 
 ```yaml
 STG_VCN:
-  compartment: STG_COMP                       # compartments.yaml 에도 추가 → make apply-iam 먼저
-  cidrs: [10.4.0.0/16]
+  compartment: STG                            # compartments.yaml 에도 추가 → make apply-iam 먼저
+  cidrs: [10.6.0.0/16]                        # 다른 VCN 과 겹치지 않게 (지금 10.0 ~ 10.5 사용 중)
   dns_label: stg
 
   drg_attachment:
@@ -289,36 +362,61 @@ STG_VCN:
 
   subnets:
     STG_APP_PRI_SBN:
-      cidr: 10.4.0.0/24
+      cidr: 10.6.0.0/24
       route_table: STG_RT
       dns_label: app
 ```
 
+spoke test 에 run 을 추가하지 않으면 `make test` 는 새 파일을 검사하지 않는다 (오류는 `make plan-stg` 에서야 드러난다).
+
 > [!IMPORTANT]
-> 새 spoke 의 대역(`10.4.0.0/16`)을 hub 쪽 `HUB_SGW_RT`, `HUB_FW_TRUST_PRI_RT`, `DRG_IPSEC_RT` 의 spoke 대역 목록에도 추가해야
-> 응답이 돌아온다. hub 를 먼저 `make apply-hub` 한 뒤 `make apply-stg` 한다.
+> hub 쪽 route rule 과 `drg.yaml` 이 spoke 대역을 `spokes` 로 적고 있으면 새 spoke 의 대역(`10.6.0.0/16`)은 자동으로 들어간다.
+> CIDR 을 직접 나열한 rule 이 있으면 그 목록에도 추가해야 응답이 돌아온다. 어느 쪽이든 hub 를 먼저 `make apply-hub` 한 뒤 `make apply-stg` 한다.
+> FortiGate 정책 · 경로는 Terraform 밖이므로 새 대역을 따로 추가한다.
 
 ### Compartment / bucket
 
 ```yaml
 # config/compartments.yaml
 compartments:
-  STG_COMP:
+  STG:
     description: "스테이징"
-  SHARED_COMP:
+  SHARED:
     ocid: ocid1.compartment.oc1..aaaa...      # 이미 있는 compartment (i.e., 만들지 않고 참조만)
 ```
 
 ```yaml
-# config/buckets.yaml: compartment 가 spoke 의 것이면 그 spoke stack, 아니면 hub stack 이 만든다
+# config/buckets.yaml: 어느 compartment 든 hub stack 이 만든다 (make apply-hub)
 buckets:
   STG-APP-LOG-01:
-    compartment: STG_COMP
+    compartment: STG
   MGMT-ARCHIVE-01:
-    compartment: MGMT_COMP
+    compartment: MGMT
     storage_tier: Archive                     # Standard | Archive
     versioning: true
 ```
+
+**compartment 하나로 운영하기**: 모든 VCN · bucket 이 같은 compartment 키를 가리키게 하면 된다. 코드는 고치지 않는다.
+
+```yaml
+# config/compartments.yaml
+compartments:
+  LZ_COMP:
+    description: "랜딩존"
+
+# config/vcns/*.yaml (VCN 파일마다)
+EC_PRD_VCN:
+  compartment: LZ_COMP
+
+# config/buckets.yaml
+buckets:
+  EC-PRD-CONNECTOR-SYSLOG-TO-BUCKET-01:
+    compartment: LZ_COMP                      # 그래도 hub stack 이 만든다
+```
+
+> [!NOTE]
+> 테스트는 `config/compartments.yaml` 을 읽으므로 compartment 구성을 바꿔도 테스트는 고치지 않는다.
+> 고칠 곳은 리소스 개수 assert (e.g., hub subnet 6, ec-prd NSG 3) 다. VCN 설계를 바꾸면 `stacks/*/tests/*.tftest.hcl` 의 해당 숫자를 같이 고친다.
 
 ## 수정하면 재생성되는 항목
 
@@ -333,6 +431,7 @@ buckets:
 | VCN `dns_label` | **삭제 → 재생성** | VCN 아래 subnet · RT · gateway 전부 |
 | YAML **키 이름** (subnet · RT · SL · NSG · gateway · bucket) | **삭제 → 재생성** | Terraform 은 키 이름으로 리소스를 구분하므로 이름을 바꾸면 다른 리소스 |
 | compartment 키 이름 | 새로 생성 + 기존 것은 state 에서만 빠짐 | `enable_delete = false` 라서 기존 compartment 는 OCI 에 남음 |
+| spoke **파일 이름** (`config/vcns/<이름>.yaml`) | workspace 가 바뀌어 빈 state 에서 **전부 새로 생성** | 기존 리소스는 옛 workspace state 에 남는다. 이름을 바꾸기 전에 옛 이름으로 `make destroy-<이름>` 한다 |
 
 제자리 수정(`~ update in-place`) 되는 것:
 
@@ -370,7 +469,10 @@ RT 를 다른 위치로 옮기면 Terraform 주소가 바뀌어 **삭제 후 재
 | `privateip:10.0.16.160` | 같은 VCN 안의 Private IP (FortiGate VIP 등). IP 가 실제로 있어야 함 |
 | `ocid1....` | OCID 직접 지정 (검사하지 않음) |
 
-**destination**: CIDR, `all-services`(All ICN Services In OSN), `objectstorage`. 여러 개는 `destinations: [a, b]`
+**destination**: CIDR, `all-services`(All ICN Services In OSN), `objectstorage`, `spokes`. 여러 개는 `destinations: [a, b]`
+
+**`spokes`**: `config/vcns` 의 hub 외 파일에 있는 VCN CIDR 전부로 펼쳐진다 (자기 VCN 의 CIDR 은 빠진다). VCN route rule 과 DRG route rule 에서 쓴다.
+spoke 파일을 추가 · 삭제하면 다음 `make apply-hub` 때 목록이 따라 바뀐다. 펼친 결과는 stack 출력 `rule_destinations` 로 확인한다 (「예제 > spoke 대역 한 번에 쓰기」).
 
 **SL / NSG 규칙**: `source`(ingress) / `destination`(egress) 은 CIDR 또는 `all-services` / `objectstorage`.
 NSG 규칙은 `nsg:<이름>` 으로 **같은 VCN 의** 다른 NSG(또는 자기 자신)도 지정할 수 있다 (Security List 는 불가).
@@ -398,8 +500,8 @@ NSG 규칙은 `nsg:<이름>` 으로 **같은 VCN 의** 다른 NSG(또는 자기 
 > Default Security List 는 **SSH 22 를 0.0.0.0/0 에서 허용**한다. public subnet 에 `default` 를 붙이면 SSH 가 인터넷에 열린다.
 > 필요 없으면 subnet 에서 `default` 를 빼거나 VCN 에 `lock_default_security_list: true` 를 쓴다.
 
-**bucket 은 compartment 로 stack 이 정해진다**: spoke VCN 의 compartment 에 속한 bucket 은 그 spoke stack,
-나머지는 hub stack 이 만든다.
+**bucket 은 모두 hub stack 이 만든다**: compartment 와 상관없이 `make apply-hub` 가 만든다.
+그래서 compartment 를 하나로 합치든 여러 개로 나누든 bucket 소유가 겹치지 않고, spoke 를 destroy 해도 bucket 은 남는다.
 
 모든 필드는 `modules/network/variables.tf` 의 타입 정의가 곧 스키마다.
 
@@ -410,13 +512,13 @@ YAML 이 잘못되면 리소스를 만들기 전에 한 번에 목록으로 보�
 ```
 Error: Resource precondition failed
 config/ YAML 오류 4건
-  - vcns/prd.yaml > PRD_VCN.subnets.PRD_WEB_PRI_SBN: 알 수 없는 키 'route_tabel'
-  - VCN PRD_VCN: compartment 'PRD_COMPP' 가 없습니다 (compartments.yaml 과 00-iam apply 확인)
-  - subnet PRD_WEB_PRI_SBN: 10.2.10.0/24 이 PRD_VCN CIDR(10.1.0.0/16) 범위 밖입니다
+  - vcns/ec-prd.yaml > EC_PRD_VCN.subnets.EC_PRD_WEB_PRI_SBN: 알 수 없는 키 'route_tabel'
+  - VCN EC_PRD_VCN: compartment 'E-COMMERCEE' 가 없습니다 (compartments.yaml 과 00-iam apply 확인)
+  - subnet EC_PRD_WEB_PRI_SBN: 10.2.10.0/24 이 EC_PRD_VCN CIDR(10.1.0.0/16) 범위 밖입니다
   - route table HUB_SGW_RT: Service Gateway 용 route table 은 drg: / privateip: 만 target 으로 쓸 수 있습니다 (igw:HUB_IGW)
 ```
 
-검사 항목: 알 수 없는 키(오타), compartment·route table·security list·NSG·gateway·DRG 참조,
+검사 항목: 앞 stack 미적용(`make apply-iam 을 먼저 실행하세요` / `make apply-hub 를 먼저 실행하세요`), 알 수 없는 키(오타), compartment·route table·security list·NSG·gateway·DRG 참조,
 게이트웨이 RT 의 target 제약, subnet CIDR 범위, 자기 VCN CIDR 를 DRG 로 보내는 rule, destination 중복,
 dns_label 형식, 이름 중복(attachment 포함), 포트 형식, DRG next_hop, VCN 파일당 1개.
 
