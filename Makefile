@@ -2,7 +2,8 @@
 #   terraform.tfvars 와 backend.hcl 은 repo 루트에 둔다 (*.example 복사).
 
 TF     ?= terraform
-SPOKES := prd dev mgmt
+# config/vcns 의 hub 외 파일이 곧 spoke (파일만 추가하면 make apply-<이름> 이 된다)
+SPOKES := $(filter-out hub,$(basename $(notdir $(wildcard config/vcns/*.yaml))))
 VARS   := -var-file=$(CURDIR)/terraform.tfvars
 
 # stack 이름 → 디렉터리 (spoke 는 20-spoke 하나를 workspace 로 나눠 씀)
