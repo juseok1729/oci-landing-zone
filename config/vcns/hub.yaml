@@ -10,13 +10,14 @@
 #
 # destination 표기법
 #   CIDR (10.1.0.0/16)  |  all-services (All ICN Services In OSN)  |  objectstorage
+#   spokes              config/vcns 의 hub 외 파일에 있는 VCN CIDR 전부 (자기 VCN 은 빠짐, spoke 추가 시 자동 반영)
 #   여러 개면 destinations: [a, b, c]
 #
 # rule 을 잠시 끄려면 enabled: false
 # ─────────────────────────────────────────────────────────────
 
 HUB_VCN:
-  compartment: HUB_COMP
+  compartment: HUB
   cidrs: [10.0.0.0/16]
   dns_label: hub
 
@@ -32,9 +33,9 @@ HUB_VCN:
       route_table:                       # OSN 응답 → spoke
         name: HUB_SGW_RT
         rules:
-          - destinations: [10.1.0.0/16, 10.2.0.0/16, 10.3.0.0/16]
+          - destination: spokes
             target: drg:HUB_DRG
-            description: "OCI 서비스 응답 → 운영/개발/관리 VCN"
+            description: "OCI 서비스 응답 → spoke VCN"
 
   drg_attachment:
     name: HUB_DRG_ATT
@@ -55,7 +56,7 @@ HUB_VCN:
           target: privateip:10.0.16.160
           description: "spoke 인터넷 아웃바운드 → FortiGate trust"
           enabled: false
-        - destinations: [10.1.0.0/16, 10.2.0.0/16, 10.3.0.0/16]
+        - destination: spokes
           target: privateip:10.0.16.160
           description: "spoke ↔ spoke → FortiGate trust"
           enabled: false
@@ -82,9 +83,9 @@ HUB_VCN:
 
     HUB_FW_TRUST_PRI_RT:
       rules:
-        - destinations: [10.1.0.0/16, 10.2.0.0/16, 10.3.0.0/16]
+        - destination: spokes
           target: drg:HUB_DRG
-          description: "검사 후 운영/개발/관리 VCN"
+          description: "검사 후 spoke VCN"
         - destination: 192.168.10.0/24
           target: drg:HUB_DRG
           description: "HQ VPN 내부망"

@@ -9,13 +9,13 @@
 parent_ocid: "ocid1.compartment.oc1..aaaaaaaaqjhru4fod33ddc4ba7wqyarjdcigt6uhs7fknlxdqi2kvr7zcmia"
 
 compartments:
-  HUB_COMP:
-    description: "허브(DMZ) - FortiGate, WAPPLES, DRG"
-  PRD_COMP:
-    description: "운영"
-  DEV_COMP:
-    description: "개발"
-  MGMT_COMP:
+  HUB:
+    description: "허브(DMZ) - FortiGate(FW), WAPPLES(WAF), DRG"
+  E-COMMERCE:
+    description: "이커머스"
+  ERP:
+    description: "ERP"
+  MGMT:
     description: "관리"
 
   # 예) 고객사가 미리 만들어 둔 compartment를 참조만 할 때

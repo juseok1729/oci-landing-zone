@@ -1,15 +1,15 @@
-PRD_VCN:
-  compartment: PRD_COMP
+EC_PRD_VCN:
+  compartment: E-COMMERCE
   cidrs: [10.1.0.0/16]
-  dns_label: prd
+  dns_label: ecprd
 
   drg_attachment:
-    name: PRD_DRG_ATT
+    name: EC_PRD_DRG_ATT
     drg: HUB_DRG
     drg_route_table: DRG_SPOKE_RT
 
   route_tables:
-    PRD_RT:
+    EC_PRD_RT:
       rules:
         - destination: 0.0.0.0/0
           target: drg:HUB_DRG
@@ -17,37 +17,37 @@ PRD_VCN:
           enabled: true
 
   subnets:
-    PRD_LB_PRI_SBN:
+    EC_PRD_LB_PRI_SBN:
       cidr: 10.1.0.0/24
-      route_table: PRD_RT
-      dns_label: lb
-    PRD_WEB_PRI_SBN:
+      route_table: EC_PRD_RT
+      dns_label: ecprdlb
+    EC_PRD_WEB_PRI_SBN:
       cidr: 10.1.16.0/24
-      route_table: PRD_RT
-      dns_label: web
-    PRD_ADMIN_PRI_SBN:
+      route_table: EC_PRD_RT
+      dns_label: ecprdweb
+    EC_PRD_ADMIN_PRI_SBN:
       cidr: 10.1.32.0/24
-      route_table: PRD_RT
-      dns_label: admin
-    PRD_CACHE_PRI_SBN:
+      route_table: EC_PRD_RT
+      dns_label: ecprdadmin
+    EC_PRD_CACHE_PRI_SBN:
       cidr: 10.1.48.0/24
-      route_table: PRD_RT
-      dns_label: cache
-    PRD_DB_PRI_SBN:
+      route_table: EC_PRD_RT
+      dns_label: ecprdcache
+    EC_PRD_DB_PRI_SBN:
       cidr: 10.1.64.0/24
-      route_table: PRD_RT
-      dns_label: db
+      route_table: EC_PRD_RT
+      dns_label: ecprddb
 
   network_security_groups:
-    PRD_HQ_SSH_NSG:
+    EC_PRD_HQ_SSH_NSG:
       ingress:
         - { source: 192.168.10.0/24, protocol: tcp, port: "22022", description: "HQ SSH" }
-    PRD_MYSQL_DB_NSG:
+    EC_PRD_MYSQL_DB_NSG:
       ingress:
         - { source: 192.168.10.0/24, protocol: tcp, port: "3306", description: "HQ TEST" }
         - { source: 10.1.16.0/24, protocol: tcp, port: "3306", description: "운영 WEB 서버 MYSQL DB 접속" }
         - { source: 10.1.32.0/24, protocol: tcp, port: "3306", description: "운영 ADMIN 서버 MYSQL DB 접속" }
-    PRD_CACHE_NSG:
+    EC_PRD_CACHE_NSG:
       ingress:
         - { source: 192.168.10.0/24, protocol: tcp, port: "6379", description: "HQ TEST" }
         - { source: 10.1.16.0/24, protocol: tcp, port: "6379", description: "운영 WEB 서버 VALKEY 접속" }

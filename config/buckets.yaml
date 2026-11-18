@@ -6,20 +6,24 @@
 # ─────────────────────────────────────────────────────────────
 
 buckets:
-  PRD-CONNECTOR-SYSLOG-TO-BUCKET-01:
-    compartment: PRD_COMP
-  DEV-CONNECTOR-SYSLOG-TO-BUCKET-01:
-    compartment: DEV_COMP
+  EC-PRD-CONNECTOR-SYSLOG-TO-BUCKET-01:
+    compartment: E-COMMERCE
+  EC-DEV-CONNECTOR-SYSLOG-TO-BUCKET-01:
+    compartment: E-COMMERCE
+  ERP-PRD-CONNECTOR-SYSLOG-TO-BUCKET-01:
+    compartment: ERP
+  ERP-DEV-CONNECTOR-SYSLOG-TO-BUCKET-01:
+    compartment: ERP
 
   MGMT-CONNECTOR-SYSLOG-TO-BUCKET-01:
-    compartment: MGMT_COMP
+    compartment: MGMT
   MGMT-BUCKET-AUDIT-LOG-01:
-    compartment: MGMT_COMP
+    compartment: MGMT
   MGMT-BUCKET-SERVICE-LOG-01:
-    compartment: MGMT_COMP
+    compartment: MGMT
 
   # 옵션 예시
   # SAMPLE-BUCKET:
-  #   compartment: MGMT_COMP
+  #   compartment: MGMT
   #   storage_tier: Standard     # Standard | Archive
   #   versioning: true           # 기본 false

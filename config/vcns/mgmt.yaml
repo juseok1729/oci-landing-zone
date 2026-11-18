@@ -1,5 +1,5 @@
 MGMT_VCN:
-  compartment: MGMT_COMP
+  compartment: MGMT
   cidrs: [10.3.0.0/16]
   dns_label: mgmt
 
@@ -20,9 +20,9 @@ MGMT_VCN:
           enabled: true
     MGMT_BASTION_PUB_RT:
       rules:
-        - destinations: [10.0.0.0/16, 10.1.0.0/16, 10.2.0.0/16]
+        - destinations: [10.0.0.0/16, spokes]   # spokes 는 자기(MGMT) 대역을 뺀 spoke 전부
           target: drg:HUB_DRG
-          description: "검사 후 허브/운영/개발 VCN"
+          description: "검사 후 허브/다른 spoke VCN"
 #        - destination: 0.0.0.0/0
 #          target: igw:MGMT_IGW
 #          description: "FortiGate 우회경로"

@@ -1,0 +1,55 @@
+ERP_DEV_VCN:
+  compartment: ERP
+  cidrs: [10.5.0.0/16]
+  dns_label: erpdev
+
+  drg_attachment:
+    name: ERP_DEV_DRG_ATT
+    drg: HUB_DRG
+    drg_route_table: DRG_SPOKE_RT
+
+  route_tables:
+    ERP_DEV_RT:
+      rules:
+        - destination: 0.0.0.0/0
+          target: drg:HUB_DRG
+          description: "인터넷/OCI 서비스 → HUB"
+          enabled: true
+
+  subnets:
+    ERP_DEV_LB_PRI_SBN:
+      cidr: 10.5.0.0/24
+      route_table: ERP_DEV_RT
+      dns_label: erpdevlb
+    ERP_DEV_WEB_PRI_SBN:
+      cidr: 10.5.16.0/24
+      route_table: ERP_DEV_RT
+      dns_label: erpdevweb
+    ERP_DEV_ADMIN_PRI_SBN:
+      cidr: 10.5.32.0/24
+      route_table: ERP_DEV_RT
+      dns_label: erpdevadmin
+    ERP_DEV_CACHE_PRI_SBN:
+      cidr: 10.5.48.0/24
+      route_table: ERP_DEV_RT
+      dns_label: erpdevcache
+    ERP_DEV_DB_PRI_SBN:
+      cidr: 10.5.64.0/24
+      route_table: ERP_DEV_RT
+      dns_label: erpdevdb
+
+  network_security_groups:
+    ERP_DEV_HQ_SSH_NSG:
+      ingress:
+        - { source: 192.168.10.0/24, protocol: tcp, port: "22022", description: "HQ SSH" }
+    ERP_DEV_MYSQL_DB_NSG:
+      ingress:
+        - { source: 192.168.10.0/24, protocol: tcp, port: "3306", description: "HQ TEST" }
+        - { source: 10.5.16.0/24, protocol: tcp, port: "3306", description: "개발 WEB 서버 MYSQL DB 접속" }
+        - { source: 10.5.32.0/24, protocol: tcp, port: "3306", description: "개발 ADMIN 서버 MYSQL DB 접속" }
+    ERP_DEV_CACHE_NSG:
+      ingress:
+        - { source: 192.168.10.0/24, protocol: tcp, port: "6379", description: "HQ TEST" }
+        - { source: 10.5.16.0/24, protocol: tcp, port: "6379", description: "개발 WEB 서버 VALKEY 접속" }
+        - { source: 10.5.32.0/24, protocol: tcp, port: "6379", description: "개발 ADMIN 서버 VALKEY 접속" }
+        - { source: 10.5.48.0/24, protocol: tcp, port: "6379", description: "OCI Cache Cluster" }
