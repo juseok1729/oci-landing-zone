@@ -19,8 +19,8 @@ data "oci_core_private_ips" "rt_target" {
 
   lifecycle {
     postcondition {
-      condition     = length(self.private_ips) > 0
-      error_message = "route target privateip:${each.value.ip} 를 subnet ${each.value.subnet_key} 에서 찾지 못했습니다. 대상(FortiGate 등)을 먼저 배포하거나, 해당 rule 을 enabled: false 로 두세요."
+      condition     = length(self.private_ips) > 0 || each.value.auto_only
+      error_message = "route target privateip:${each.value.ip} 를 subnet ${each.value.subnet_key} 에서 찾지 못했습니다. 대상(NVA 등)을 먼저 배포하거나, 해당 rule 을 enabled: auto (대상이 있을 때만 켜짐) / false 로 두세요."
     }
   }
 }
@@ -50,7 +50,7 @@ locals {
           ? rule.target
           : lookup(local.target_ids_base, startswith(rule.target, "privateip:") ? "${rule.target}@${r.vcn_key}" : rule.target, null)
         )
-      }
+      } if !rule.auto || lookup(local.target_ids_base, "${rule.target}@${r.vcn_key}", null) != null
     ]
   }
 
@@ -65,7 +65,7 @@ locals {
           ? rule.target
           : lookup(local.target_ids_with_sgw, startswith(rule.target, "privateip:") ? "${rule.target}@${r.vcn_key}" : rule.target, null)
         )
-      }
+      } if !rule.auto || lookup(local.target_ids_base, "${rule.target}@${r.vcn_key}", null) != null
     ]
   }
 }

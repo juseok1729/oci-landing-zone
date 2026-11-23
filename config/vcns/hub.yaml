@@ -14,6 +14,7 @@
 #   여러 개면 destinations: [a, b, c]
 #
 # rule 을 잠시 끄려면 enabled: false
+# enabled: auto 는 privateip target 이 실제로 있을 때만 켠다 (NVA 를 만든 뒤 make apply-hub 하면 켜지고, 없으면 빠진다)
 # ─────────────────────────────────────────────────────────────
 
 HUB_VCN:
@@ -55,15 +56,15 @@ HUB_VCN:
         - destination: 0.0.0.0/0
           target: privateip:10.0.16.160
           description: "spoke 인터넷 아웃바운드 → FortiGate trust"
-          enabled: false
+          enabled: auto
         - destination: spokes
           target: privateip:10.0.16.160
           description: "spoke ↔ spoke → FortiGate trust"
-          enabled: false
+          enabled: auto
         - destination: 10.0.64.0/24
           target: privateip:10.0.16.160
           description: "DRG → FortiGate → WAF"
-          enabled: false
+          enabled: auto
 
   route_tables:                          # subnet 용
     HUB_FW_MGMT_PUB_RT:
@@ -95,12 +96,11 @@ HUB_VCN:
 
     HUB_FW_WAF_PRI_RT:
       rules:
-        # private IP target은 해당 IP가 실제로 존재해야 조회된다.
-        # → FortiGate 배포 전 첫 apply에서는 false, 배포 후 true 로 바꾸고 다시 apply
+        # private IP target은 해당 IP가 실제로 존재해야 조회된다 → enabled: auto (NVA 배포 후 make apply-hub 때 켜짐)
         - destination: 0.0.0.0/0
           target: privateip:10.0.16.160
           description: "FortiGate port3"
-          enabled: false
+          enabled: auto
         - destination: all-services
           target: sgw:HUB_SGW
 

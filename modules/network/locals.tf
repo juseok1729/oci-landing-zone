@@ -107,8 +107,9 @@ locals {
               destination = d
               target      = rule.target
               description = rule.description
+              auto        = rule.enabled == "auto"
             }
-          ] if rule.enabled
+          ] if rule.enabled != "false"
         ])
       }
     }
@@ -141,6 +142,10 @@ locals {
       ip         = split("@", ref)[0]
       vcn_key    = split("@", ref)[1]
       subnet_key = length(cands) == 1 ? cands[0] : null
+      # 이 IP 를 쓰는 rule 이 모두 enabled: auto 면 IP 가 없어도 오류가 아니다 (그 rule 만 빠진다)
+      auto_only = alltrue(flatten([
+        for r in local.rt_all : [for rule in r.rules : rule.auto if "${trimprefix(rule.target, "privateip:")}@${r.vcn_key}" == ref]
+      ]))
     }
   }
 

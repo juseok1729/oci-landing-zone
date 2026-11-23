@@ -69,6 +69,34 @@ run "design_config_applies" {
   }
 }
 
+# enabled: auto: 10.0.16.160(NVA) 이 있으면 켜지고 (mock 은 IP 가 있다고 응답), 없으면 오류 없이 빠진다
+run "auto_rules_follow_nva" {
+  command = apply
+
+  assert {
+    condition     = contains(output.rule_destinations.vcn["HUB_FW_WAF_PRI_RT"], "0.0.0.0/0") && contains(output.rule_destinations.vcn["HUB_INGRESS_RT"], "10.0.64.0/24")
+    error_message = "NVA IP 가 있으면 enabled: auto rule 이 켜져야 합니다."
+  }
+}
+
+run "auto_rules_skip_without_nva" {
+  command = apply
+
+  override_data {
+    target = module.network.data.oci_core_private_ips.rt_target
+    values = { private_ips = [] }
+  }
+
+  assert {
+    condition     = !contains(output.rule_destinations.vcn["HUB_FW_WAF_PRI_RT"], "0.0.0.0/0") && !contains(output.rule_destinations.vcn["HUB_INGRESS_RT"], "10.0.64.0/24")
+    error_message = "NVA IP 가 없으면 enabled: auto rule 은 빠져야 합니다 (plan 은 실패하지 않아야 합니다)."
+  }
+  assert {
+    condition     = contains(output.rule_destinations.vcn["HUB_FW_WAF_PRI_RT"], "all-icn-services-in-oracle-services-network")
+    error_message = "auto 가 아닌 rule 은 그대로 남아야 합니다."
+  }
+}
+
 run "privateip_nsg_source_port" {
   command = apply
 

@@ -194,7 +194,17 @@ locals {
     )
   ])
 
+  err_rule_enabled = flatten([
+    for r in local.rt_raw : [
+      for rule in r.rules : concat(
+        contains(["true", "false", "auto"], rule.enabled) ? [] : ["route table ${r.key}: enabled 는 true / false / auto 중 하나입니다 (${rule.enabled})"],
+        rule.enabled != "auto" || startswith(rule.target, "privateip:") ? [] : ["route table ${r.key}: enabled: auto 는 privateip: target 에만 쓸 수 있습니다 (${rule.target})"]
+      )
+    ]
+  ])
+
   config_errors = concat(
+    local.err_rule_enabled,
     local.err_compartment,
     local.err_duplicate,
     local.err_vcn,

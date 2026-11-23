@@ -65,7 +65,7 @@ variable "vcns" {
           destinations = optional(list(string), [])
           target       = string
           description  = optional(string)
-          enabled      = optional(bool, true)
+          enabled      = optional(string, "true") # true | false | auto (privateip target 이 있을 때만)
         })), [])
       }))
     })), {})
@@ -84,7 +84,7 @@ variable "vcns" {
           destinations = optional(list(string), [])
           target       = string
           description  = optional(string)
-          enabled      = optional(bool, true)
+          enabled      = optional(string, "true") # true | false | auto (privateip target 이 있을 때만)
         })), [])
       }))
     }))
@@ -98,7 +98,7 @@ variable "vcns" {
         destinations = optional(list(string), [])
         target       = string
         description  = optional(string)
-        enabled      = optional(bool, true)
+        enabled      = optional(string, "true") # true | false | auto (privateip target 이 있을 때만)
       })), [])
     })), {})
 

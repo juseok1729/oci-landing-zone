@@ -44,9 +44,9 @@ output "config_errors" {
 }
 
 output "rule_destinations" {
-  description = "route table 이름 → 펼친 destination 목록 (spokes 가 무엇으로 펼쳐졌는지 확인용)"
+  description = "route table 이름 → 실제로 들어가는 destination 목록 (spokes 펼침 · enabled: auto 확인용)"
   value = {
-    vcn = { for k, r in local.rt_all : k => [for x in r.rules : x.destination] }
+    vcn = { for k, rules in merge(local.rt_sgw_rules, local.rt_other_rules) : k => [for x in rules : x.destination] }
     drg = { for k, _ in local.drg_rt : k => sort([for x in values(local.drg_rt_rules) : x.destination if x.rt_key == k]) }
   }
 }
