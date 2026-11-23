@@ -1,4 +1,4 @@
-# 세 stack 이 같은 변수 세트를 쓴다 (terraform.tfvars 하나를 같이 쓰기 위해). 바꾸면 세 파일 모두 바꾼다.
+# 모든 stack 이 같은 변수 세트를 쓴다 (terraform.tfvars 하나를 같이 쓰기 위해). 바꾸면 모든 stack 의 variables.tf 를 바꾼다.
 
 variable "tenancy_ocid" {
   description = "Tenancy OCID"

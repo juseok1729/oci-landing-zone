@@ -1,0 +1,38 @@
+# ─────────────────────────────────────────────────────────────
+# NVA (VyOS 같은 라우터 VM). stacks/30-nva 가 만든다: make apply-nva (hub 다음)
+#  - vnics 의 첫 번째가 primary VNIC 이고, 나머지는 secondary VNIC 로 붙는다.
+#  - subnet 은 hub VCN 의 subnet 이름이다.
+#  - public_ip: ephemeral (인스턴스와 같이 생기고 지워짐) | reserved (따로 남는 고정 IP) | 생략 = 없음
+#  - secondary_ips 는 secondary VNIC 에만 쓴다.
+#  - SSH 키는 넣지 않는다 (이미지가 비밀번호 인증으로 구성돼 있다).
+#  - OS 안의 eth 번호는 VNIC 이 붙는 순서와 다를 수 있다. apply 후 output nva_vnics 의 MAC 으로 맞춘다.
+#
+# hub.yaml 의 privateip:10.0.16.160 rule 은 이 stack 을 apply 한 뒤에 enabled: true 로 바꾼다.
+# ─────────────────────────────────────────────────────────────
+
+nvas:
+  NVA:
+    compartment: HUB
+    image: ocid1.image.oc1.ap-seoul-1.aaaaaaaapww6qz3zd2b6axwyzwhx3rrz33fou3rb5bvznfnpr3olpbryvknq   # VyOS custom image
+    shape: VM.Standard.E5.Flex
+    ocpus: 4                          # E5.Flex 4 OCPU = VNIC 최대 4개 (VNIC 을 늘리면 OCPU 도 늘린다)
+    memory_gb: 16
+    availability_domain: 1
+
+    vnics:
+      - name: mgmt
+        subnet: HUB_FW_MGMT_PUB_SBN
+        public_ip: ephemeral          # 관리 SSH 용
+      - name: untrust
+        subnet: HUB_FW_UNTRUST_PUB_SBN
+        private_ip: 10.0.0.11
+        skip_source_dest_check: true
+        public_ip: reserved
+      - name: trust
+        subnet: HUB_FW_TRUST_PRI_SBN
+        private_ip: 10.0.16.11
+        secondary_ips: [10.0.16.160]  # route rule target (privateip:10.0.16.160)
+        skip_source_dest_check: true
+      - name: ha
+        subnet: HUB_FW_HA_PRI_SBN
+        private_ip: 10.0.48.4

@@ -1,0 +1,72 @@
+#!/bin/vbash
+# stacks/30-nva 가 만든 VyOS 설정 (terraform output vyos_config). make configure-nva 가 SSH 로 적용한다.
+# 인터페이스 이름 · MAC · 주소 · spoke 대역은 config/ 에서 오고, 나머지 정책은 이 템플릿에 적는다.
+# N.B. set 만 하므로, 템플릿에서 지운 줄은 장비에서 지워지지 않는다 (delete 줄을 따로 넣는다).
+source /opt/vyatta/etc/functions/script-template
+configure
+
+# 인터페이스: hw-id(= OCI VNIC MAC)로 이름을 고정해 재부팅해도 eth 번호가 바뀌지 않게 한다
+%{ for name, e in eth ~}
+set interfaces ethernet ${e} hw-id '${mac[name]}'
+set interfaces ethernet ${e} description '${name}'
+%{ for a in addr[name] ~}
+set interfaces ethernet ${e} address '${a}'
+%{ endfor ~}
+%{ endfor ~}
+set interfaces ethernet ${eth.trust} mtu '9000'
+set interfaces ethernet ${eth.ha} mtu '9000'
+
+# 메인 테이블: 인터넷은 untrust, 내부(spoke · WAF · DNS · HQ)는 trust 의 VCN 라우터로
+set protocols static route 0.0.0.0/0 next-hop ${gw.untrust}
+%{ for c in concat(spokes, ["10.0.64.0/24", "10.0.80.0/24", "192.168.10.0/24"]) ~}
+set protocols static route ${c} next-hop ${gw.trust}
+%{ endfor ~}
+
+# OCI DNS(169.254.169.254)는 MGMT VRF 에서만 보이므로 메인 테이블용 DNS 지정
+set system name-server '1.1.1.1'
+
+# 인터넷 NAT: spoke 와 WAF subnet 이 untrust 로 나갈 때
+%{ for c in concat(spokes, ["10.0.64.0/24"]) ~}
+set firewall group network-group NAT-INSIDE network '${c}'
+%{ endfor ~}
+set nat source rule 100 description 'inside-to-internet'
+set nat source rule 100 outbound-interface name '${eth.untrust}'
+set nat source rule 100 source group network-group 'NAT-INSIDE'
+set nat source rule 100 translation address 'masquerade'
+
+# 응답 트래픽 공통 허용
+set firewall global-options state-policy established action 'accept'
+set firewall global-options state-policy related action 'accept'
+set firewall global-options state-policy invalid action 'drop'
+
+# 운영 ↔ 비운영 차단 (config/vcns 파일 이름이 prd 로 끝나면 VCN-PRD, 나머지 spoke 는 VCN-NONPRD)
+%{ for c in prd ~}
+set firewall group network-group VCN-PRD network '${c}'
+%{ endfor ~}
+%{ for c in nonprd ~}
+set firewall group network-group VCN-NONPRD network '${c}'
+%{ endfor ~}
+set firewall ipv4 name ALLOW-ALL default-action 'accept'
+set firewall ipv4 name TRUST-INTRA default-action 'accept'
+set firewall ipv4 name TRUST-INTRA rule 100 action 'drop'
+set firewall ipv4 name TRUST-INTRA rule 100 source group network-group 'VCN-NONPRD'
+set firewall ipv4 name TRUST-INTRA rule 100 destination group network-group 'VCN-PRD'
+set firewall ipv4 name TRUST-INTRA rule 110 action 'drop'
+set firewall ipv4 name TRUST-INTRA rule 110 source group network-group 'VCN-PRD'
+set firewall ipv4 name TRUST-INTRA rule 110 destination group network-group 'VCN-NONPRD'
+
+# zone
+set firewall zone MGMT member interface '${eth.mgmt}'
+set firewall zone MGMT default-action 'drop'
+set firewall zone UNTRUST member interface '${eth.untrust}'
+set firewall zone UNTRUST default-action 'drop'
+set firewall zone UNTRUST from TRUST firewall name 'ALLOW-ALL'
+set firewall zone TRUST member interface '${eth.trust}'
+set firewall zone TRUST default-action 'drop'
+set firewall zone TRUST intra-zone-filtering firewall name 'TRUST-INTRA'
+set firewall zone HA member interface '${eth.ha}'
+set firewall zone HA default-action 'drop'
+
+commit
+save
+exit

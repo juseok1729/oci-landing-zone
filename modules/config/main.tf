@@ -16,6 +16,7 @@ locals {
   compartments_raw = fileexists("${local.dir}/compartments.yaml") ? yamldecode(file("${local.dir}/compartments.yaml")) : null
   drg_raw          = fileexists("${local.dir}/drg.yaml") ? yamldecode(file("${local.dir}/drg.yaml")) : null
   buckets_raw      = fileexists("${local.dir}/buckets.yaml") ? yamldecode(file("${local.dir}/buckets.yaml")) : null
+  nvas_raw         = fileexists("${local.dir}/nvas.yaml") ? yamldecode(file("${local.dir}/nvas.yaml")) : null
 
   # config/vcns/<이름>.yaml → { "<이름>" = { VCN_NAME = {...} } }   (파일 1개 = VCN 1개 = stack 1개)
   vcn_files = {
@@ -34,6 +35,9 @@ locals {
     drg_rule          = ["destination", "destinations", "next_hop", "enabled"]
     buckets_file      = ["buckets"]
     bucket            = ["compartment", "storage_tier", "versioning"]
+    nvas_file         = ["nvas"]
+    nva               = ["compartment", "display_name", "image", "shape", "ocpus", "memory_gb", "availability_domain", "vnics"]
+    nva_vnic          = ["name", "subnet", "private_ip", "secondary_ips", "skip_source_dest_check", "public_ip"]
     vcn               = ["compartment", "display_name", "cidrs", "dns_label", "lock_default_security_list", "internet_gateways", "service_gateways", "drg_attachment", "route_tables", "security_lists", "network_security_groups", "subnets"]
     igw               = ["display_name", "compartment", "enabled"]
     sgw               = ["display_name", "compartment", "services", "route_table"]
@@ -71,6 +75,16 @@ locals {
   checks_buckets = concat(
     [{ where = "buckets.yaml", obj = local.buckets_raw, kind = "buckets_file" }],
     [for b in try(keys(local.buckets_raw.buckets), []) : { where = "buckets.yaml > ${b}", obj = local.buckets_raw.buckets[b], kind = "bucket" }]
+  )
+
+  checks_nvas = concat(
+    [{ where = "nvas.yaml", obj = local.nvas_raw, kind = "nvas_file" }],
+    flatten([
+      for n in try(keys(local.nvas_raw.nvas), []) : concat(
+        [{ where = "nvas.yaml > ${n}", obj = local.nvas_raw.nvas[n], kind = "nva" }],
+        [for i, v in try(local.nvas_raw.nvas[n].vnics, []) : { where = "nvas.yaml > ${n}.vnics[${i}]", obj = v, kind = "nva_vnic" }]
+      )
+    ])
   )
 
   checks_vcns = {
@@ -140,6 +154,10 @@ output "buckets" {
   value = try(local.buckets_raw.buckets, null)
 }
 
+output "nvas" {
+  value = try(local.nvas_raw.nvas, null)
+}
+
 output "vcn_files" {
   description = "파일 이름(확장자 제외) → 그 파일의 VCN"
   value       = local.vcn_files
@@ -151,6 +169,7 @@ output "errors" {
     compartments = flatten([for c in local.checks_compartments : [for k in try(keys(c.obj), []) : "${c.where}: 알 수 없는 키 '${k}'" if !contains(local.allowed[c.kind], k)]])
     drg          = flatten([for c in local.checks_drg : [for k in try(keys(c.obj), []) : "${c.where}: 알 수 없는 키 '${k}'" if !contains(local.allowed[c.kind], k)]])
     buckets      = flatten([for c in local.checks_buckets : [for k in try(keys(c.obj), []) : "${c.where}: 알 수 없는 키 '${k}'" if !contains(local.allowed[c.kind], k)]])
+    nvas         = flatten([for c in local.checks_nvas : [for k in try(keys(c.obj), []) : "${c.where}: 알 수 없는 키 '${k}'" if !contains(local.allowed[c.kind], k)]])
     vcns         = { for f, cs in local.checks_vcns : f => flatten([for c in cs : [for k in try(keys(c.obj), []) : "${c.where}: 알 수 없는 키 '${k}'" if !contains(local.allowed[c.kind], k)]]) }
     cross        = local.errors_cross
   }

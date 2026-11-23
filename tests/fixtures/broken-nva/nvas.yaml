@@ -1,0 +1,15 @@
+nvas:
+  BAD_NVA:
+    compartment: TEST_COMP
+    image: ocid1.image.oc1..mock
+    shape: VM.Standard.E5.Flex
+    ocpus: 1
+    memory_gb: 8
+    vnics:
+      - name: mgmt
+        subnet: HUB_FW_MGMT_PUB_SBN
+        secondary_ips: [10.0.32.100]      # 오류: primary VNIC 에는 못 씀
+      - name: untrust
+        subnet: NO_SUCH_SBN               # 오류: hub 에 없는 subnet
+        public_ip: static                 # 오류: ephemeral / reserved 만
+        skip_source_dest_chek: true       # 오류: 알 수 없는 키 (오타)
