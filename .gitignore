@@ -7,3 +7,4 @@ terraform.tfvars
 backend.hcl
 # .terraform.lock.hcl 은 커밋한다 (provider 버전 고정)
 .env.local
+.DS_Store
