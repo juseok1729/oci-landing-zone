@@ -1,8 +1,8 @@
-# OCI Hub & Spoke Landing Zone (YAML-driven Terraform)
+# OCI Landing Zone (YAML-driven Terraform)
 
 ![Terraform](https://img.shields.io/badge/Terraform-~%3E%201.12-844FBA?logo=terraform&logoColor=white)
-![oracle/oci](https://img.shields.io/badge/oracle%2Foci-9.13.0-C74634?logo=oracle&logoColor=white)
 ![hashicorp/time](https://img.shields.io/badge/hashicorp%2Ftime-0.14.2-844FBA?logo=hashicorp&logoColor=white)
+![oracle/oci](https://img.shields.io/badge/oracle%2Foci-9.13.0-C74634?logo=oracle&logoColor=white)
 ![OCI backend](https://img.shields.io/badge/state-OCI%20Object%20Storage-C74634?logo=oracle&logoColor=white)
 
 **YAML 이 곧 설계서, Terraform 은 그 YAML 을 읽어 리소스로 바꾸는 범용 엔진.**  
