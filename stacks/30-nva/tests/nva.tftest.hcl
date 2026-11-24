@@ -72,10 +72,15 @@ run "design_config_applies" {
       "set protocols static route 0.0.0.0/0 next-hop 10.0.0.1",
       "set protocols static route 10.5.0.0/16 next-hop 10.0.16.1",
       "set firewall group network-group VCN-PRD network '10.4.0.0/16'",
-      "set firewall group network-group VCN-NONPRD network '10.3.0.0/16'",
+      "set firewall group network-group VCN-NONPRD network '10.5.0.0/16'",
+      "delete firewall group network-group VCN-NONPRD",
       "set firewall zone MGMT member interface 'eth0'",
     ] : strcontains(output.vyos_config["NVA"], l)])
     error_message = "vyos_config 에 인터페이스 주소 · 경로 · 그룹이 config 대로 들어가야 합니다."
+  }
+  assert {
+    condition     = !strcontains(output.vyos_config["NVA"], "VCN-NONPRD network '10.3.0.0/16'") && !strcontains(output.vyos_config["NVA"], "VCN-PRD network '10.3.0.0/16'")
+    error_message = "mgmt(10.3) 는 VCN-PRD · VCN-NONPRD 어디에도 없어야 합니다 (모든 VCN 과 통신)."
   }
   assert {
     condition     = !strcontains(output.vyos_config["NVA"], "ethernet eth0 address")

@@ -226,11 +226,12 @@ resource "oci_core_public_ip" "reserved" {
 
 # VyOS 설정 템플릿 값 (vyos.sh.tftpl)
 locals {
-  hub_subnets  = try(values(module.config.vcn_files["hub"])[0].subnets, {})
-  spoke_files  = { for f, d in module.config.vcn_files : f => flatten([for v in values(d) : try(v.cidrs, [])]) if f != "hub" }
-  spoke_cidrs  = sort(flatten(values(local.spoke_files)))
-  prd_cidrs    = sort(flatten([for f, c in local.spoke_files : c if endswith(f, "prd")]))
-  nonprd_cidrs = sort(flatten([for f, c in local.spoke_files : c if !endswith(f, "prd")]))
+  hub_subnets = try(values(module.config.vcn_files["hub"])[0].subnets, {})
+  spoke_files = { for f, d in module.config.vcn_files : f => flatten([for v in values(d) : try(v.cidrs, [])]) if f != "hub" }
+  spoke_cidrs = sort(flatten(values(local.spoke_files)))
+  prd_cidrs   = sort(flatten([for f, c in local.spoke_files : c if endswith(f, "prd")]))
+  # mgmt 는 모든 VCN 을 모니터링 · 접근제어하므로 어느 그룹에도 넣지 않는다 (TRUST-INTRA default accept)
+  nonprd_cidrs = sort(flatten([for f, c in local.spoke_files : c if !endswith(f, "prd") && f != "mgmt"]))
 
   vyos_vars = {
     for n, v in local.nvas : n => {
