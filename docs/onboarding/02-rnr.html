@@ -1,0 +1,285 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>이커머스 · ERP 구축 R&amp;R</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- 표지 -->
+<section class="page cover">
+  <div>
+    <div class="eyebrow">역할과 책임 (R&amp;R) · 교육용 가상 사례</div>
+    <h1>OCI 기반 이커머스 · ERP<br>인프라 구축 사업 R&amp;R</h1>
+    <p class="sub">누가 실행하고, 누가 승인하고, 누구에게 묻고 알리는가</p>
+    <div class="bar"></div>
+    <table class="kv">
+      <tr><th>발주기관</th><td>○○리테일 (가상)</td></tr>
+      <tr><th>수행사</th><td>우리 회사 (클라우드 구축 · MSP)</td></tr>
+      <tr><th>근거 문서</th><td>「01. 제안요청서」 (요구사항 ID 는 이 문서를 가리킨다)</td></tr>
+    </table>
+  </div>
+  <div>
+    <p class="fine">신입 엔지니어 온보딩용이다. 실제 사업에서는 계약서와 사업수행계획서의 R&amp;R 이 이 문서보다 우선한다.</p>
+  </div>
+</section>
+
+<!-- 목차 + 1. 개요 -->
+<section class="page">
+  <h2>목차</h2>
+  <div class="toc">
+    <ol>
+      <li><span>1</span><span>개요와 RACI 읽는 법</span></li>
+      <li><span>2</span><span>조직 구성과 역할</span></li>
+      <li><span>3</span><span>책임 경계 (무엇이 누구 것인가)</span></li>
+      <li><span>4</span><span>단계별 RACI 매트릭스</span></li>
+      <li><span>5</span><span>오픈 후 운영 R&amp;R 과 변경 절차</span></li>
+      <li><span>6</span><span>의사소통 · 장애 등급 · 에스컬레이션</span></li>
+      <li><span>7</span><span>산출물 R&amp;R</span></li>
+      <li><span>8</span><span>신입 엔지니어의 자리</span></li>
+    </ol>
+  </div>
+
+  <h2 style="margin-top:28px">1. 개요와 RACI 읽는 법</h2>
+  <p>R&amp;R (Roles and Responsibilities) 은 사업에 참여하는 사람마다 맡는 일과 결정 권한을 적은 문서다. 일이 잘못됐을 때 "누가 했어야 했나" 를 따지려는 문서가 아니라, 일이 시작되기 전에 "누가 할지" 를 정해 빈틈과 중복을 없애는 문서다.</p>
+  <table>
+    <thead><tr><th>표기</th><th>뜻</th><th>예</th></tr></thead>
+    <tr><td class="id">R</td><td>Responsible: 실제로 일을 하는 사람. 여러 명일 수 있다.</td><td>네트워크 엔지니어가 VCN 을 만든다.</td></tr>
+    <tr><td class="id">A</td><td>Accountable: 결과를 최종 책임지고 승인하는 사람. 활동마다 <b>한 명</b>이다.</td><td>아키텍트가 구성 결과를 승인한다.</td></tr>
+    <tr><td class="id">C</td><td>Consulted: 일하기 전에 의견을 묻는 사람 (양방향).</td><td>정보보호팀에 방화벽 정책을 묻는다.</td></tr>
+    <tr><td class="id">I</td><td>Informed: 결과를 알려 주는 사람 (단방향).</td><td>인프라 운영팀에 구축 완료를 알린다.</td></tr>
+  </table>
+  <div class="note">RACI 를 검토할 때는 세 가지를 본다: A 가 둘 이상인 행 (결정이 안 난다), R 이 없는 행 (아무도 안 한다), C 가 너무 많은 행 (일이 느려진다).</div>
+</section>
+
+<!-- 2. 조직 -->
+<section class="page">
+  <h2>2. 조직 구성과 역할</h2>
+  <figure>
+    <svg viewBox="0 0 780 300" width="100%" role="img" aria-label="사업 조직 구성도">
+      <defs>
+        <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#5b6577"/></marker>
+      </defs>
+      <path d="M115,60 Q390,0 665,60" fill="none" stroke="#5b6577" stroke-dasharray="4 3" marker-start="url(#ar)" marker-end="url(#ar)"/>
+      <text x="390" y="22" text-anchor="middle" font-size="10" fill="#5b6577">클라우드 사용 계약 (발주기관 명의)</text>
+
+      <g font-size="10.5" fill="#1c2330" text-anchor="middle">
+        <rect x="10" y="60" width="210" height="226" rx="8" fill="#eef3fb" stroke="#8aa4cf"/>
+        <text x="115" y="82" font-size="12" font-weight="700" fill="#22324d">발주기관 (○○리테일)</text>
+        <rect x="22" y="96" width="186" height="24" rx="4" fill="#fff" stroke="#d6dbe4"/><text x="115" y="112">사업 총괄 (PO)</text>
+        <rect x="22" y="126" width="186" height="24" rx="4" fill="#fff" stroke="#d6dbe4"/><text x="115" y="142">인프라 운영팀</text>
+        <rect x="22" y="156" width="186" height="24" rx="4" fill="#fff" stroke="#d6dbe4"/><text x="115" y="172">정보보호팀 (CISO · CPO)</text>
+        <rect x="22" y="186" width="186" height="24" rx="4" fill="#fff" stroke="#d6dbe4"/><text x="115" y="202">업무 부서 (이커머스 · 재무)</text>
+        <rect x="22" y="216" width="186" height="24" rx="4" fill="#fff" stroke="#d6dbe4"/><text x="115" y="232">AP 운영사 (별도 계약)</text>
+
+        <rect x="285" y="60" width="210" height="226" rx="8" fill="#fdf1ee" stroke="#c74634"/>
+        <text x="390" y="82" font-size="12" font-weight="700" fill="#c74634">수행사 (우리 회사)</text>
+        <rect x="297" y="96" width="186" height="24" rx="4" fill="#fff" stroke="#d6dbe4"/><text x="390" y="112">PM</text>
+        <rect x="297" y="126" width="186" height="24" rx="4" fill="#fff" stroke="#d6dbe4"/><text x="390" y="142">클라우드 아키텍트</text>
+        <rect x="297" y="156" width="186" height="24" rx="4" fill="#fff" stroke="#d6dbe4"/><text x="390" y="172">네트워크 · 보안 엔지니어</text>
+        <rect x="297" y="186" width="186" height="24" rx="4" fill="#fff" stroke="#d6dbe4"/><text x="390" y="202">시스템 · DB 엔지니어</text>
+        <rect x="297" y="216" width="186" height="24" rx="4" fill="#fff" stroke="#d6dbe4"/><text x="390" y="232">자동화 (IaC) 엔지니어</text>
+        <rect x="297" y="246" width="186" height="24" rx="4" fill="#fff" stroke="#d6dbe4"/><text x="390" y="262">품질 (QA)</text>
+
+        <rect x="560" y="60" width="210" height="226" rx="8" fill="#eef8f1" stroke="#7fb795"/>
+        <text x="665" y="82" font-size="12" font-weight="700" fill="#2f6b45">협력사</text>
+        <rect x="572" y="96" width="186" height="24" rx="4" fill="#fff" stroke="#d6dbe4"/><text x="665" y="112">Oracle (OCI)</text>
+        <rect x="572" y="126" width="186" height="24" rx="4" fill="#fff" stroke="#d6dbe4"/><text x="665" y="142">방화벽 · WAF 제조사</text>
+        <rect x="572" y="156" width="186" height="24" rx="4" fill="#fff" stroke="#d6dbe4"/><text x="665" y="172">DB 암호화 · 접근제어 솔루션사</text>
+        <rect x="572" y="186" width="186" height="24" rx="4" fill="#fff" stroke="#d6dbe4"/><text x="665" y="202">모의해킹 전문기관</text>
+      </g>
+
+      <g font-size="9.5" fill="#5b6577" text-anchor="middle">
+        <line x1="222" y1="190" x2="283" y2="190" stroke="#5b6577" marker-start="url(#ar)" marker-end="url(#ar)"/>
+        <text x="252" y="168">계약</text><text x="252" y="181">보고 · 검수</text>
+        <line x1="497" y1="190" x2="558" y2="190" stroke="#5b6577" marker-start="url(#ar)" marker-end="url(#ar)"/>
+        <text x="527" y="168">공급</text><text x="527" y="181">기술지원</text>
+      </g>
+    </svg>
+    <figcaption>그림 1. 사업 조직 (실선: 이 사업의 계약 · 협업 관계, 점선: 발주기관이 직접 맺는 계약)</figcaption>
+  </figure>
+
+  <table>
+    <thead><tr><th>소속</th><th>역할</th><th>주요 책임</th><th>결정 권한</th></tr></thead>
+    <tr><td rowspan="5">발주기관</td><td class="name">사업 총괄 (PO)</td><td>예산 · 일정 · 범위 관리, 보고회 주관, 최종 검수</td><td>범위 변경, 검수 승인</td></tr>
+    <tr><td class="name">인프라 운영팀</td><td>현행 정보 제공, 본사 VPN 장비 설정, 오픈 후 운영 인수</td><td>IP 대역 배정, 네트워크 설계 승인</td></tr>
+    <tr><td class="name">정보보호팀</td><td>보안 정책 · 개인정보 보호조치 검토, 취약점 점검 관리</td><td>방화벽 정책 · 권한 설계 승인</td></tr>
+    <tr><td class="name">업무 부서</td><td>업무 요구 제공, 사용자 인수 시험 (UAT)</td><td>UAT 합격 판정</td></tr>
+    <tr><td class="name">AP 운영사</td><td>애플리케이션 배포 · 설정, 이관 후 업무 검증</td><td>애플리케이션 변경</td></tr>
+    <tr><td rowspan="6">수행사</td><td class="name">PM</td><td>일정 · 인력 · 위험 관리, 보고, 고객 창구 단일화</td><td>수행사 내부 우선순위</td></tr>
+    <tr><td class="name">클라우드 아키텍트</td><td>목표 아키텍처, 기술 결정, 구축 결과 승인</td><td>기술 방식 결정</td></tr>
+    <tr><td class="name">네트워크 · 보안</td><td>VCN · DRG · 라우팅, 방화벽 · WAF · VPN, 통신 시험</td><td>없음 (아키텍트 승인)</td></tr>
+    <tr><td class="name">시스템 · DB</td><td>서버 · LB · DB · Cache, 보안 솔루션 연동, 데이터 이관</td><td>없음 (아키텍트 승인)</td></tr>
+    <tr><td class="name">자동화 (IaC)</td><td>구성 코드화, 구성 점검표, 코드 리뷰</td><td>없음 (아키텍트 승인)</td></tr>
+    <tr><td class="name">품질 (QA)</td><td>산출물 · 요구사항 추적표 검토, 시험 결과 확인</td><td>산출물 반려</td></tr>
+    <tr><td rowspan="3">협력사</td><td class="name">Oracle</td><td>클라우드 플랫폼 운영, 서비스 한도 증설, 기술지원 (SR)</td><td>플랫폼 정책</td></tr>
+    <tr><td class="name">솔루션사</td><td>제품 설치 지원, 라이선스, 제품 기술지원</td><td>제품 설정 가이드</td></tr>
+    <tr><td class="name">모의해킹 기관</td><td>오픈 전 모의해킹 (TER-004)</td><td>점검 결과 판정</td></tr>
+  </table>
+</section>
+
+<!-- 3. 책임 경계 -->
+<section class="page">
+  <h2>3. 책임 경계 (무엇이 누구 것인가)</h2>
+  <p>클라우드에서는 같은 서버라도 층마다 주인이 다르다. Oracle 은 클라우드 "자체" (데이터센터, 하드웨어, 가상화) 를 책임지고, 그 위에 올린 것은 고객이 책임진다. 이를 공동 책임 모델이라 한다.</p>
+  <table>
+    <thead><tr><th>계층</th><th>Oracle</th><th>수행사 (구축 기간)</th><th>발주기관 · 운영사 (오픈 후)</th></tr></thead>
+    <tr><td class="name">데이터센터 · 하드웨어 · 가상화</td><td>전담</td><td>없음</td><td>없음</td></tr>
+    <tr><td class="name">테넌시 · 계약 · 서비스 한도</td><td>한도 증설 처리</td><td>필요 한도 산정 · 요청서 작성</td><td>소유, 계약, 요청</td></tr>
+    <tr><td class="name">관리형 서비스 (DB, Cache, LB)</td><td>엔진 패치, 플랫폼 가용성</td><td>크기 · 백업 · 접근 설정</td><td>설정 변경 승인, 비용</td></tr>
+    <tr><td class="name">compartment · IAM</td><td>없음</td><td>설계 · 구축</td><td>소유, 계정 발급 · 회수</td></tr>
+    <tr><td class="name">네트워크 (VCN, DRG, RT, SL, NSG)</td><td>없음</td><td>설계 · 구축 · 코드화</td><td>변경 승인 · 운영</td></tr>
+    <tr><td class="name">방화벽 · WAF 정책</td><td>없음</td><td>초기 정책 구성</td><td>정책 승인 (정보보호팀), 변경 운영</td></tr>
+    <tr><td class="name">OS · 미들웨어</td><td>없음</td><td>설치, 표준 설정, 보안 설정</td><td>패치 · 운영 (운영사)</td></tr>
+    <tr><td class="name">애플리케이션</td><td>없음</td><td>없음 (범위 밖)</td><td>AP 운영사</td></tr>
+    <tr><td class="name">데이터 · 개인정보</td><td>없음</td><td>이관 수행</td><td>소유, 개인정보처리자로서 법적 책임</td></tr>
+  </table>
+  <div class="note warn"><b>소유권은 검수 후 넘어간다.</b> 오픈 전까지는 수행사가 구성을 바꾸지만, 검수가 끝나면 모든 구성의 주인은 발주기관이다. 그 뒤 수행사는 하자보수 범위 안에서, 변경 승인을 받고 나서만 바꾼다 (RFP COR-002).</div>
+</section>
+
+<!-- 4. RACI -->
+<section class="page join">
+  <h2>4. 단계별 RACI 매트릭스</h2>
+  <p>열 머리의 약어는 2장의 역할이다. 빈칸은 관여하지 않는다는 뜻이다.</p>
+  <table class="raci">
+    <thead>
+      <tr><th rowspan="2">활동</th><th class="grp" colspan="4">발주기관</th><th class="grp" colspan="5">수행사</th><th class="grp" colspan="2">협력사</th></tr>
+      <tr><th>PO</th><th>인프라</th><th>보안</th><th>업무<br>AP</th><th>PM</th><th>아키<br>텍트</th><th>NW<br>보안</th><th>시스템<br>DB</th><th>자동화</th><th>Oracle</th><th>솔루<br>션사</th></tr>
+    </thead>
+    <tr class="phase"><td colspan="12">착수 · 분석</td></tr>
+    <tr><td>사업수행계획서</td><td class="a">A</td><td>I</td><td>I</td><td>I</td><td class="r">R</td><td>C</td><td>I</td><td>I</td><td>I</td><td></td><td></td></tr>
+    <tr><td>요구사항 정의 · 추적표</td><td class="a">A</td><td>C</td><td>C</td><td>C</td><td class="r">R</td><td class="r">R</td><td>C</td><td>C</td><td>I</td><td></td><td></td></tr>
+    <tr><td>현행 시스템 분석</td><td>I</td><td>C</td><td>C</td><td>C</td><td class="a">A</td><td class="r">R</td><td class="r">R</td><td class="r">R</td><td>I</td><td></td><td></td></tr>
+    <tr><td>테넌시 · 서비스 한도 확보</td><td class="a">A</td><td class="r">R</td><td>I</td><td></td><td>C</td><td>C</td><td></td><td></td><td></td><td class="r">R</td><td></td></tr>
+    <tr class="phase"><td colspan="12">설계</td></tr>
+    <tr><td>목표 아키텍처 설계</td><td class="a">A</td><td>C</td><td>C</td><td>I</td><td>C</td><td class="r">R</td><td>C</td><td>C</td><td>C</td><td>C</td><td></td></tr>
+    <tr><td>IP · 네트워크 설계</td><td>I</td><td class="a">A</td><td>C</td><td></td><td>I</td><td>C</td><td class="r">R</td><td>I</td><td>C</td><td></td><td></td></tr>
+    <tr><td>보안 정책 설계 (방화벽 · SL · NSG · WAF)</td><td>I</td><td>C</td><td class="a">A</td><td>C</td><td>I</td><td>C</td><td class="r">R</td><td>I</td><td>I</td><td></td><td>C</td></tr>
+    <tr><td>IAM · 권한 설계</td><td>I</td><td>C</td><td class="a">A</td><td></td><td>I</td><td class="r">R</td><td>I</td><td>I</td><td>C</td><td></td><td></td></tr>
+    <tr><td>이관 설계</td><td class="a">A</td><td>C</td><td>I</td><td>C</td><td>C</td><td>C</td><td></td><td class="r">R</td><td></td><td></td><td></td></tr>
+    <tr class="phase"><td colspan="12">구축</td></tr>
+    <tr><td>compartment · IAM 구축</td><td></td><td>I</td><td>C</td><td></td><td>I</td><td class="a">A</td><td></td><td></td><td class="r">R</td><td></td><td></td></tr>
+    <tr><td>Hub · DRG · Spoke 네트워크 구축</td><td></td><td>I</td><td>I</td><td></td><td>I</td><td class="a">A</td><td class="r">R</td><td></td><td class="r">R</td><td></td><td></td></tr>
+    <tr><td>방화벽 · WAF 설치 · 정책 적용</td><td></td><td>I</td><td>C</td><td></td><td>I</td><td class="a">A</td><td class="r">R</td><td></td><td>C</td><td></td><td class="r">R</td></tr>
+    <tr><td>본사 IPSec VPN 연결</td><td></td><td class="r">R</td><td>I</td><td></td><td>I</td><td class="a">A</td><td class="r">R</td><td></td><td></td><td></td><td></td></tr>
+    <tr><td>서버 · LB · DB · Cache 구성</td><td></td><td>I</td><td></td><td>C</td><td>I</td><td class="a">A</td><td>C</td><td class="r">R</td><td class="r">R</td><td></td><td></td></tr>
+    <tr><td>보안 솔루션 설치 · 연동</td><td></td><td>I</td><td>C</td><td></td><td>I</td><td class="a">A</td><td>C</td><td class="r">R</td><td></td><td></td><td class="r">R</td></tr>
+    <tr><td>로그 · 모니터링 · 알림</td><td></td><td>C</td><td>C</td><td></td><td>I</td><td class="a">A</td><td>C</td><td class="r">R</td><td class="r">R</td><td></td><td></td></tr>
+    <tr class="phase"><td colspan="12">이관 · 시험</td></tr>
+    <tr><td>데이터 이관 (리허설 · 본 이관)</td><td>I</td><td>C</td><td>I</td><td class="r">R</td><td class="a">A</td><td>C</td><td></td><td class="r">R</td><td></td><td></td><td></td></tr>
+    <tr><td>통신 시험 (허용 · 차단)</td><td></td><td>I</td><td>C</td><td></td><td>I</td><td class="a">A</td><td class="r">R</td><td>C</td><td>C</td><td></td><td></td></tr>
+    <tr><td>성능 · 장애 시험</td><td>I</td><td>C</td><td>I</td><td>C</td><td>I</td><td class="a">A</td><td class="r">R</td><td class="r">R</td><td>C</td><td>C</td><td>C</td></tr>
+    <tr><td>취약점 점검 · 조치</td><td>I</td><td>C</td><td class="a">A</td><td></td><td>C</td><td>C</td><td class="r">R</td><td class="r">R</td><td></td><td></td><td>C</td></tr>
+    <tr><td>사용자 인수 시험 (UAT)</td><td class="a">A</td><td>C</td><td>I</td><td class="r">R</td><td>C</td><td>I</td><td></td><td>C</td><td></td><td></td><td></td></tr>
+    <tr class="phase"><td colspan="12">전환 · 안정화</td></tr>
+    <tr><td>운영 전환 판정</td><td class="a">A</td><td>C</td><td>C</td><td>C</td><td class="r">R</td><td>C</td><td>I</td><td>I</td><td>I</td><td></td><td></td></tr>
+    <tr><td>안정화 · 장애 대응</td><td>I</td><td>C</td><td>I</td><td>C</td><td class="a">A</td><td>C</td><td class="r">R</td><td class="r">R</td><td class="r">R</td><td>C</td><td>C</td></tr>
+    <tr><td>교육 · 기술 이전</td><td>I</td><td>C</td><td>C</td><td></td><td class="a">A</td><td class="r">R</td><td class="r">R</td><td class="r">R</td><td class="r">R</td><td></td><td></td></tr>
+    <tr><td>완료 검수</td><td class="a">A</td><td>C</td><td>C</td><td>C</td><td class="r">R</td><td>I</td><td>I</td><td>I</td><td>I</td><td></td><td></td></tr>
+  </table>
+  <div class="note">발주기관이 A 인 행은 "고객이 결정하는 일" 이다. 수행사가 아무리 좋은 안을 갖고 있어도 이 행들은 고객 승인 없이 진행하지 않는다. 구축 단계의 A 가 아키텍트인 것은 기술적 완성도를 수행사 안에서 먼저 책임진다는 뜻이고, 발주기관은 마지막 완료 검수에서 확인한다.</div>
+</section>
+
+<!-- 5. 운영 R&R -->
+<section class="page">
+  <h2>5. 오픈 후 운영 R&amp;R 과 변경 절차</h2>
+  <table>
+    <thead><tr><th>업무</th><th>요청</th><th>승인</th><th>수행</th><th>비고</th></tr></thead>
+    <tr><td class="name">방화벽 포트 열기</td><td>업무 · AP 운영사</td><td>정보보호팀</td><td>인프라 운영팀</td><td>출발지 · 목적지 · 포트 · 기간을 적는다</td></tr>
+    <tr><td class="name">새 spoke VCN 추가</td><td>업무 부서</td><td>PO, 인프라 운영팀</td><td>인프라 운영팀</td><td>CIDR 은 인프라 운영팀이 배정한다</td></tr>
+    <tr><td class="name">서버 증설</td><td>업무 부서</td><td>인프라 운영팀</td><td>인프라 운영팀</td><td>월 비용 영향을 함께 검토한다</td></tr>
+    <tr><td class="name">OS 패치</td><td>인프라 운영팀</td><td>인프라 운영팀</td><td>AP 운영사</td><td>정기 작업 시간에 한다</td></tr>
+    <tr><td class="name">계정 발급 · 회수</td><td>업무 부서</td><td>정보보호팀</td><td>인프라 운영팀</td><td>내역을 3년 이상 보관한다 (RFP SER-005)</td></tr>
+    <tr><td class="name">OCI 플랫폼 장애</td><td>누구나</td><td></td><td>Oracle</td><td>SR 은 발주기관 테넌시 명의로 연다</td></tr>
+    <tr><td class="name">하자 처리</td><td>인프라 운영팀</td><td>수행사 PM</td><td>수행사</td><td>검수 후 12개월</td></tr>
+  </table>
+
+  <h3>변경 절차</h3>
+  <ol class="steps">
+    <li><b>변경 요청서 작성:</b> 무엇을, 왜, 영향 범위, 작업 시간, 원복 방법을 적는다.</li>
+    <li><b>영향 검토:</b> 아키텍트와 인프라 운영팀이 다른 시스템에 미치는 영향을 본다.</li>
+    <li><b>승인:</b> 보안에 영향이 있으면 정보보호팀 승인을 같이 받는다.</li>
+    <li><b>코드 변경과 리뷰:</b> 구성 코드를 고치고, 다른 사람이 리뷰하고, 적용 전 계획 (e.g., <code>terraform plan</code>) 결과에서 의도한 것만 바뀌는지 확인한다.</li>
+    <li><b>적용:</b> 승인된 작업 시간에 적용한다.</li>
+    <li><b>확인과 기록:</b> 시험 결과를 남기고 변경 대장에 적는다.</li>
+  </ol>
+  <div class="note warn"><b>콘솔에서 급하게 바꾸면 코드와 실제가 어긋난다.</b> 다음 사람이 코드를 적용하는 순간 그 변경은 되돌아가고, 장애가 "아무도 안 바꿨는데" 생긴 것처럼 보인다. 긴급 장애로 콘솔에서 바꿨다면 당일 안에 코드에 반영하고 변경 대장에 남긴다.</div>
+</section>
+
+<!-- 6. 의사소통 -->
+<section class="page">
+  <h2>6. 의사소통 · 장애 등급 · 에스컬레이션</h2>
+  <h3>6.1 회의체</h3>
+  <table>
+    <thead><tr><th>회의</th><th>주기</th><th>주관</th><th>참석</th><th>내용</th></tr></thead>
+    <tr><td class="name">착수 · 중간 · 완료 보고회</td><td>단계별 1회</td><td>PM</td><td>PO, 각 팀장, 수행사 전원</td><td>계획 · 진척 · 결과, 주요 결정 사항</td></tr>
+    <tr><td class="name">주간 회의</td><td>매주</td><td>PM</td><td>PO, 인프라 · 정보보호 담당</td><td>진척, 이슈, 다음 주 계획</td></tr>
+    <tr><td class="name">기술 협의</td><td>필요 시</td><td>아키텍트</td><td>인프라 · 정보보호 담당, 엔지니어</td><td>설계 결정, 정책 협의</td></tr>
+    <tr><td class="name">일일 점검</td><td>매일 15분</td><td>PM</td><td>수행사 엔지니어</td><td>어제 한 일, 오늘 할 일, 막힌 일</td></tr>
+  </table>
+
+  <h3>6.2 장애 등급</h3>
+  <table>
+    <thead><tr><th>등급</th><th>기준</th><th>보고</th><th>대응 목표</th></tr></thead>
+    <tr><td class="id">P1 긴급</td><td>온라인몰 전체 중단, 결제 불가, ERP 전체 중단, 개인정보 유출 의심</td><td>인지 즉시 PM → PO 전화</td><td>2시간 이내 대응 착수</td></tr>
+    <tr><td class="id">P2 높음</td><td>일부 기능 장애, 눈에 띄는 성능 저하</td><td>1시간 이내 메신저 · 메일</td><td>4시간 이내</td></tr>
+    <tr><td class="id">P3 보통</td><td>서비스 영향 없는 오류, 문의</td><td>일일 점검 · 주간 회의</td><td>다음 영업일</td></tr>
+  </table>
+
+  <h3>6.3 에스컬레이션</h3>
+  <table>
+    <thead><tr><th>단계</th><th>수행사</th><th>발주기관</th><th>넘기는 기준</th></tr></thead>
+    <tr><td class="id">L1</td><td>담당 엔지니어</td><td>인프라 운영 담당</td><td>1일 안에 해결되지 않으면 L2</td></tr>
+    <tr><td class="id">L2</td><td>PM</td><td>인프라 운영팀장</td><td>3일 안에 해결되지 않거나 일정 · 범위에 영향이 있으면 L3</td></tr>
+    <tr><td class="id">L3</td><td>사업 책임자 (임원)</td><td>PO</td><td>보고회 · 별도 회의에서 결정</td></tr>
+  </table>
+  <p>P1 장애와 보안 사고는 단계를 건너뛰어 바로 PM 과 PO 에게 알린다.</p>
+</section>
+
+<!-- 7. 산출물 -->
+<section class="page">
+  <h2>7. 산출물 R&amp;R</h2>
+  <table>
+    <thead><tr><th>산출물</th><th>작성 (R)</th><th>검토 (C)</th><th>승인 (A)</th><th>관련 요구사항</th></tr></thead>
+    <tr><td class="name">사업수행계획서</td><td>PM</td><td>아키텍트</td><td>PO</td><td>PMR-001</td></tr>
+    <tr><td class="name">요구사항 추적표</td><td>PM, 아키텍트</td><td>업무 부서, 인프라</td><td>PO</td><td>전체</td></tr>
+    <tr><td class="name">아키텍처 설계서</td><td>아키텍트</td><td>인프라, 정보보호, Oracle</td><td>PO</td><td>SFR-001~004</td></tr>
+    <tr><td class="name">네트워크 설계서 (IP 대장 포함)</td><td>네트워크 · 보안</td><td>아키텍트</td><td>인프라 운영팀</td><td>SFR-002~004, 007, 008</td></tr>
+    <tr><td class="name">보안 설계서 (정책표 포함)</td><td>네트워크 · 보안</td><td>아키텍트, 솔루션사</td><td>정보보호팀</td><td>SFR-005, 006, SER 전체</td></tr>
+    <tr><td class="name">이관 계획 · 결과서</td><td>시스템 · DB</td><td>업무 부서, AP 운영사</td><td>PO</td><td>DAR-001</td></tr>
+    <tr><td class="name">시험 계획 · 결과서</td><td>각 엔지니어</td><td>아키텍트, QA</td><td>인프라 운영팀 (보안 시험은 정보보호팀)</td><td>TER 전체</td></tr>
+    <tr><td class="name">구성 점검표 (설계값 ↔ 실제)</td><td>자동화</td><td>아키텍트</td><td>인프라 운영팀</td><td>QUR-002, 003</td></tr>
+    <tr><td class="name">운영 매뉴얼</td><td>각 엔지니어</td><td>인프라 운영팀</td><td>인프라 운영팀</td><td>PSR-001</td></tr>
+    <tr><td class="name">완료 보고서</td><td>PM</td><td>QA</td><td>PO</td><td>PMR-001</td></tr>
+  </table>
+</section>
+
+<!-- 8. 신입 -->
+<section class="page">
+  <h2>8. 신입 엔지니어의 자리</h2>
+  <p>신입은 보통 네트워크 · 보안 엔지니어나 시스템 엔지니어 아래에서 R 의 일부를 맡는다. A 가 되는 일은 없고, 고객과의 공식 창구는 PM 이다. 단계마다 아래 일을 먼저 맡게 된다.</p>
+  <table>
+    <thead><tr><th>단계</th><th>주로 하는 일</th><th>손대는 산출물</th><th>먼저 물어볼 사람</th></tr></thead>
+    <tr><td class="name">착수 · 분석</td><td>현행 자료 정리 (서버 목록, IP 대장, 방화벽 정책 엑셀), 회의록</td><td>현행 분석서 부록</td><td>아키텍트</td></tr>
+    <tr><td class="name">설계</td><td>IP 대장 · 정책표 작성, 구성도 그리기</td><td>네트워크 · 보안 설계서 부록</td><td>네트워크 · 보안 엔지니어</td></tr>
+    <tr><td class="name">구축</td><td>VCN · subnet · route table 구성 (실습 가이드 수준), 코드 PR, 구성 점검표 채우기</td><td>구성 점검표</td><td>자동화 엔지니어</td></tr>
+    <tr><td class="name">시험</td><td>통신 시험 수행, 결과 캡처와 정리</td><td>시험 결과서</td><td>네트워크 · 보안 엔지니어</td></tr>
+    <tr><td class="name">전환 · 안정화</td><td>전환 체크리스트 수행, 모니터링 대기</td><td>전환 체크리스트</td><td>PM</td></tr>
+  </table>
+
+  <h3>하는 것과 하지 않는 것</h3>
+  <table>
+    <thead><tr><th style="width:50%">하는 것</th><th>하지 않는 것</th></tr></thead>
+    <tr><td>15분 고민해도 모르면 묻는다. 무엇을 해 봤는지 같이 말한다.</td><td>승인 없이 고객 콘솔에서 바꾸지 않는다 (RFP COR-002).</td></tr>
+    <tr><td>작업 전후의 화면과 명령 결과를 남긴다. 시험 결과서의 근거가 된다.</td><td>지정된 상위 compartment 와 그 위의 리소스는 바꾸거나 지우지 않는다 (RFP COR-001).</td></tr>
+    <tr><td>고객에게 받은 요청은 바로 PM 에게 공유한다.</td><td>고객에게 일정 · 범위를 직접 약속하지 않는다.</td></tr>
+    <tr><td>비밀번호 · 키는 사내 비밀 저장소로만 주고받는다.</td><td>메신저 · 메일 · 문서에 비밀번호 · 키를 적지 않는다 (RFP COR-003).</td></tr>
+    <tr><td>변경은 코드 PR 로 올리고 리뷰를 받는다.</td><td>장애나 실수를 혼자 해결하려고 미루지 않는다. 바로 보고한다.</td></tr>
+  </table>
+  <div class="note">실습은 「03. Hub &amp; Spoke 구축 실습 가이드」 로 이어진다. 실습에서 만드는 VCN · DRG · 방화벽이 위 표 "구축" 단계에서 신입이 처음 맡는 범위와 같다.</div>
+</section>
+
+</body>
+</html>

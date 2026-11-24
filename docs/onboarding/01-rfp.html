@@ -1,0 +1,396 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>이커머스 · ERP 구축 제안요청서</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- 표지 -->
+<section class="page cover">
+  <div>
+    <div class="eyebrow">제안요청서 (RFP) · 교육용 가상 사례</div>
+    <h1>OCI 기반 이커머스 · ERP<br>인프라 구축 사업</h1>
+    <p class="sub">Hub &amp; Spoke 네트워크, 보안, 데이터 이관, 운영 전환</p>
+    <div class="bar"></div>
+    <table class="kv">
+      <tr><th>발주기관</th><td>○○리테일 (가상)</td></tr>
+      <tr><th>사업기간</th><td>계약일부터 6개월</td></tr>
+      <tr><th>사업예산</th><td>6억 원 (VAT 포함, 클라우드 사용료 별도)</td></tr>
+      <tr><th>계약방법</th><td>제한경쟁, 협상에 의한 계약</td></tr>
+      <tr><th>공고일</th><td>2026. 12. 1.</td></tr>
+    </table>
+  </div>
+  <div>
+    <div class="issuer">○○리테일 IT전략팀</div>
+    <p class="fine">이 문서는 신입 엔지니어 온보딩용 가상 사례다. 회사명 · 금액 · 일정 · 물량은 실제와 무관하고, 네트워크 설계값은 사내 OCI 랜딩존 저장소 기준이다. 함께 읽는 문서: 「02. 역할과 책임 (R&amp;R)」, 「03. Hub &amp; Spoke 구축 실습 가이드」.</p>
+  </div>
+</section>
+
+<!-- 목차 -->
+<section class="page toc">
+  <h2>목차</h2>
+  <ol>
+    <li><span>1</span><span>사업 개요</span></li>
+    <li class="sub"><span></span><span>1.1 사업 정보 · 1.2 추진 배경 · 1.3 사업 목적 · 1.4 사업 범위</span></li>
+    <li><span>2</span><span>현황 및 목표 시스템</span></li>
+    <li class="sub"><span></span><span>2.1 현황 · 2.2 목표 구성도 · 2.3 설계 원칙 · 2.4 네트워크 설계값 · 2.5 트래픽 흐름</span></li>
+    <li><span>3</span><span>제안 요청 내용 (요구사항 53개)</span></li>
+    <li class="sub"><span></span><span>3.1 총괄표 · 3.2 상세 요구사항</span></li>
+    <li><span>4</span><span>제안서 작성 안내</span></li>
+    <li><span>5</span><span>제안서 평가</span></li>
+    <li><span>6</span><span>입찰 및 제출 안내</span></li>
+    <li><span>부록</span><span>용어 정리</span></li>
+  </ol>
+
+  <h3>읽기 전에 (신입용 안내)</h3>
+  <div class="note">
+    <p><b>RFP 는 고객이 "무엇을" 원하는지 적은 문서이고, 제안서는 수행사가 "어떻게" 할지 적은 문서다.</b> 수주 후에는 RFP 의 요구사항이 계약 범위가 되므로, 적혀 있지 않은 일은 하지 않아도 되고 적혀 있는 일은 반드시 해야 한다.</p>
+    <p>요구사항 ID (e.g., SFR-005) 는 제안서 → 요구사항 추적표 → 설계서 → 시험 결과서까지 따라가는 추적 키다. 검수는 ID 하나하나가 충족됐는지 확인하는 방식으로 진행된다.</p>
+    <p>처음 읽을 때는 세 곳을 먼저 본다: 1.4 의 <b>범위 밖</b> (하지 않는 일), 3.2 의 <b>제약사항 (COR)</b> (하면 안 되는 일), 5장의 <b>평가 배점</b> (고객이 중요하게 여기는 일).</p>
+  </div>
+</section>
+
+<!-- 1. 사업 개요 -->
+<section class="page join">
+  <h2>1. 사업 개요</h2>
+
+  <h3>1.1 사업 정보</h3>
+  <table class="kv">
+    <tr><th>사업명</th><td>OCI 기반 이커머스 · ERP 인프라 구축 사업</td></tr>
+    <tr><th>발주기관</th><td>○○리테일 (가상의 중견 유통사, 온라인몰 회원 약 80만 명)</td></tr>
+    <tr><th>사업기간</th><td>계약일부터 6개월 (구축 5개월 + 안정화 1개월)</td></tr>
+    <tr><th>사업예산</th><td>6억 원 (VAT 포함). 클라우드 사용료는 발주기관이 Oracle 과 직접 계약하므로 제외한다.</td></tr>
+    <tr><th>대상 시스템</th><td>이커머스 (온라인몰, 관리자), ERP (재무 · 구매 · 재고), 공통 관리 시스템</td></tr>
+    <tr><th>클라우드</th><td>Oracle Cloud Infrastructure (OCI) 서울 리전</td></tr>
+  </table>
+
+  <h3>1.2 추진 배경</h3>
+  <ul>
+    <li><b>장비 노후:</b> 이커머스와 ERP 는 본사 전산실에서 운영 중이며, 서버 · 스토리지 도입 후 7년이 지나 유지보수 종료가 예정돼 있다.</li>
+    <li><b>트래픽 변동:</b> 대형 프로모션 기간에 접속이 평시의 5배까지 늘어 응답 지연과 주문 실패가 반복됐다. 장비를 피크 기준으로 사면 평시에는 대부분 놀게 된다.</li>
+    <li><b>운영 · 개발 혼재:</b> 개발 서버가 운영과 같은 네트워크에 있어, 개인정보 보호 점검에서 "운영 · 개발 환경 분리 미흡" 지적을 받았다.</li>
+    <li><b>보안 체계 분산:</b> 방화벽이 단일 장비이고 웹 방화벽 · DB 접근제어가 없어, 시스템마다 보안 수준이 다르다.</li>
+  </ul>
+
+  <h3>1.3 사업 목적</h3>
+  <ol>
+    <li>이커머스 · ERP 를 OCI 로 전환해 트래픽에 맞춰 늘고 주는 인프라를 갖춘다.</li>
+    <li>Hub &amp; Spoke 구조로 인터넷 출입구와 보안 장비를 hub 하나로 모아, 시스템이 늘어도 보안 정책을 한 곳에서 관리한다.</li>
+    <li>운영 · 개발을 네트워크 단위로 분리하고 개인정보 보호 법령의 기술적 보호조치를 충족한다.</li>
+    <li>발주기관 인력이 직접 운영할 수 있도록 설계 문서, 운영 매뉴얼, 코드화된 구성을 넘겨받는다.</li>
+  </ol>
+
+  <h3>1.4 사업 범위</h3>
+  <table>
+    <thead><tr><th>구분</th><th>내용</th></tr></thead>
+    <tr><td class="name">클라우드 기반 구성</td><td>compartment 구조, IAM 그룹 · 정책, 태그, 예산 알림</td></tr>
+    <tr><td class="name">네트워크</td><td>Hub VCN 1개, Spoke VCN 5개 (이커머스 운영 · 개발, ERP 운영 · 개발, 관리), DRG, 본사 IPSec VPN</td></tr>
+    <tr><td class="name">보안</td><td>방화벽 (NVA) 이중화, 웹 방화벽 (WAF) 이중화, DB 암호화 · DB 접근제어 솔루션 설치 · 연동, 로그 수집</td></tr>
+    <tr><td class="name">이커머스 인프라</td><td>운영 · 개발 각각 LB, WEB, ADMIN, Cache, DB 계층</td></tr>
+    <tr><td class="name">ERP 인프라</td><td>운영 · 개발 각각 이커머스와 같은 계층 구조</td></tr>
+    <tr><td class="name">관리 인프라</td><td>bastion, 모니터링, CI/CD, DB 접근제어, DB 암호화 서버</td></tr>
+    <tr><td class="name">데이터 이관</td><td>이커머스 · ERP DB 와 파일 이관, 전환 리허설 2회 이상</td></tr>
+    <tr><td class="name">운영 전환</td><td>안정화 1개월, 운영자 교육 · 기술 이전, 운영 매뉴얼</td></tr>
+  </table>
+  <div class="note warn"><b>범위 밖:</b> 애플리케이션 기능 개발 · 변경 (별도 사업), ERP 패키지 라이선스와 커스터마이징, 클라우드 사용료, 본사 측 VPN 장비 구매 (설정 협조만 한다).</div>
+</section>
+
+<!-- 2. 현황 및 목표 -->
+<section class="page join">
+  <h2>2. 현황 및 목표 시스템</h2>
+
+  <h3>2.1 현황 (As-Is)</h3>
+  <table>
+    <thead><tr><th>구분</th><th>현재 구성</th><th>문제</th></tr></thead>
+    <tr><td class="name">이커머스</td><td>WEB 4대, WAS 2대, MySQL 1대 (이중화 없음)</td><td>피크 시 응답 지연, DB 단일 장애점</td></tr>
+    <tr><td class="name">ERP</td><td>AP 2대, DB 1대</td><td>월말 결산 시 부하, 백업이 테이프 수동 교체</td></tr>
+    <tr><td class="name">개발계</td><td>운영과 같은 L2 네트워크</td><td>운영 · 개발 분리 미흡 지적</td></tr>
+    <tr><td class="name">보안</td><td>방화벽 1대, WAF · DB 접근제어 없음</td><td>단일 장애점, 개인정보 접속기록 수동 관리</td></tr>
+    <tr><td class="name">본사</td><td>사용자망 192.168.10.0/24</td><td>클라우드 전환 후에도 VPN 으로 ERP 접속 필요</td></tr>
+  </table>
+
+  <h3>2.2 목표 구성도 (To-Be)</h3>
+  <figure>
+    <svg viewBox="0 0 760 430" width="100%" role="img" aria-label="OCI Hub and Spoke 목표 구성도">
+      <defs>
+        <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#5b6577"/></marker>
+      </defs>
+      <!-- 인터넷 / OSN -->
+      <rect x="20" y="14" width="120" height="40" rx="20" fill="#fff" stroke="#5b6577"/>
+      <text x="80" y="39" text-anchor="middle" font-size="12" fill="#1c2330">인터넷</text>
+      <rect x="620" y="14" width="120" height="40" rx="20" fill="#fff" stroke="#5b6577"/>
+      <text x="680" y="32" text-anchor="middle" font-size="11" fill="#1c2330">OCI 서비스</text>
+      <text x="680" y="46" text-anchor="middle" font-size="10" fill="#5b6577">(OSN)</text>
+
+      <!-- Hub VCN -->
+      <rect x="150" y="70" width="460" height="170" rx="8" fill="#fdf1ee" stroke="#c74634" stroke-width="1.5"/>
+      <text x="162" y="90" font-size="12" font-weight="700" fill="#c74634">HUB_VCN 10.0.0.0/16 · HUB compartment</text>
+      <!-- IGW / SGW -->
+      <rect x="128" y="104" width="44" height="26" rx="4" fill="#fff" stroke="#c74634"/>
+      <text x="150" y="121" text-anchor="middle" font-size="10" fill="#1c2330">IGW</text>
+      <rect x="588" y="104" width="44" height="26" rx="4" fill="#fff" stroke="#c74634"/>
+      <text x="610" y="121" text-anchor="middle" font-size="10" fill="#1c2330">SGW</text>
+      <line x1="140" y1="104" x2="95" y2="56" stroke="#5b6577" marker-end="url(#arr)"/>
+      <line x1="620" y1="104" x2="665" y2="56" stroke="#5b6577" marker-end="url(#arr)"/>
+      <!-- subnets -->
+      <g font-size="9.5" fill="#1c2330">
+        <rect x="190" y="104" width="86" height="40" rx="4" fill="#fff" stroke="#d6dbe4"/><text x="233" y="120" text-anchor="middle">FW UNTRUST</text><text x="233" y="134" text-anchor="middle" fill="#5b6577">10.0.0.0/24</text>
+        <rect x="282" y="104" width="86" height="40" rx="4" fill="#fff" stroke="#d6dbe4"/><text x="325" y="120" text-anchor="middle">FW TRUST</text><text x="325" y="134" text-anchor="middle" fill="#5b6577">10.0.16.0/24</text>
+        <rect x="374" y="104" width="86" height="40" rx="4" fill="#fff" stroke="#d6dbe4"/><text x="417" y="120" text-anchor="middle">FW MGMT</text><text x="417" y="134" text-anchor="middle" fill="#5b6577">10.0.32.0/24</text>
+        <rect x="466" y="104" width="86" height="40" rx="4" fill="#fff" stroke="#d6dbe4"/><text x="509" y="120" text-anchor="middle">FW HA</text><text x="509" y="134" text-anchor="middle" fill="#5b6577">10.0.48.0/28</text>
+        <rect x="190" y="190" width="120" height="36" rx="4" fill="#fff" stroke="#d6dbe4"/><text x="250" y="205" text-anchor="middle">WAF</text><text x="250" y="219" text-anchor="middle" fill="#5b6577">10.0.64.0/24</text>
+        <rect x="320" y="190" width="120" height="36" rx="4" fill="#fff" stroke="#d6dbe4"/><text x="380" y="205" text-anchor="middle">DNS</text><text x="380" y="219" text-anchor="middle" fill="#5b6577">10.0.80.0/24</text>
+      </g>
+      <!-- NVA -->
+      <rect x="190" y="152" width="362" height="28" rx="5" fill="#c74634"/>
+      <text x="371" y="170" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">방화벽 (NVA) 이중화 · trust VIP 10.0.16.160</text>
+
+      <!-- DRG -->
+      <rect x="320" y="270" width="120" height="34" rx="6" fill="#22324d"/>
+      <text x="380" y="286" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">HUB_DRG</text>
+      <text x="380" y="299" text-anchor="middle" font-size="8.5" fill="#cfd6e3">DRG_SPOKE_RT · DRG_IPSEC_RT</text>
+      <line x1="380" y1="240" x2="380" y2="270" stroke="#22324d" stroke-width="2"/>
+
+      <!-- HQ -->
+      <rect x="20" y="270" width="140" height="40" rx="6" fill="#fff" stroke="#22324d" stroke-dasharray="4 3"/>
+      <text x="90" y="287" text-anchor="middle" font-size="11" fill="#1c2330">본사</text>
+      <text x="90" y="301" text-anchor="middle" font-size="9.5" fill="#5b6577">192.168.10.0/24</text>
+      <line x1="160" y1="290" x2="320" y2="288" stroke="#22324d" stroke-dasharray="4 3"/>
+      <text x="240" y="282" text-anchor="middle" font-size="9.5" fill="#22324d">IPSec VPN</text>
+
+      <!-- spokes -->
+      <g font-size="10" fill="#1c2330">
+        <line x1="380" y1="304" x2="86" y2="350" stroke="#5b6577"/>
+        <line x1="380" y1="304" x2="232" y2="350" stroke="#5b6577"/>
+        <line x1="380" y1="304" x2="380" y2="350" stroke="#5b6577"/>
+        <line x1="380" y1="304" x2="528" y2="350" stroke="#5b6577"/>
+        <line x1="380" y1="304" x2="674" y2="350" stroke="#5b6577"/>
+        <rect x="20" y="350" width="132" height="60" rx="6" fill="#eef3fb" stroke="#8aa4cf"/>
+        <text x="86" y="370" text-anchor="middle" font-weight="700">ec-prd</text><text x="86" y="385" text-anchor="middle" fill="#5b6577">10.1.0.0/16</text><text x="86" y="399" text-anchor="middle" fill="#5b6577" font-size="9">E-COMMERCE · 운영</text>
+        <rect x="166" y="350" width="132" height="60" rx="6" fill="#eef3fb" stroke="#8aa4cf"/>
+        <text x="232" y="370" text-anchor="middle" font-weight="700">ec-dev</text><text x="232" y="385" text-anchor="middle" fill="#5b6577">10.2.0.0/16</text><text x="232" y="399" text-anchor="middle" fill="#5b6577" font-size="9">E-COMMERCE · 개발</text>
+        <rect x="314" y="350" width="132" height="60" rx="6" fill="#eef8f1" stroke="#7fb795"/>
+        <text x="380" y="370" text-anchor="middle" font-weight="700">mgmt</text><text x="380" y="385" text-anchor="middle" fill="#5b6577">10.3.0.0/16</text><text x="380" y="399" text-anchor="middle" fill="#5b6577" font-size="9">MGMT · 전 VCN 허용</text>
+        <rect x="462" y="350" width="132" height="60" rx="6" fill="#eef3fb" stroke="#8aa4cf"/>
+        <text x="528" y="370" text-anchor="middle" font-weight="700">erp-prd</text><text x="528" y="385" text-anchor="middle" fill="#5b6577">10.4.0.0/16</text><text x="528" y="399" text-anchor="middle" fill="#5b6577" font-size="9">ERP · 운영</text>
+        <rect x="608" y="350" width="132" height="60" rx="6" fill="#eef3fb" stroke="#8aa4cf"/>
+        <text x="674" y="370" text-anchor="middle" font-weight="700">erp-dev</text><text x="674" y="385" text-anchor="middle" fill="#5b6577">10.5.0.0/16</text><text x="674" y="399" text-anchor="middle" fill="#5b6577" font-size="9">ERP · 개발</text>
+      </g>
+    </svg>
+    <figcaption>그림 1. 목표 구성도 (spoke 에는 IGW · NAT 를 두지 않고 기본 경로를 DRG 로 보내 hub 의 방화벽을 같이 쓴다. OCI 서비스는 spoke 마다 둔 SGW 로 바로 나간다)</figcaption>
+  </figure>
+
+  <h3>2.3 설계 원칙</h3>
+  <ul>
+    <li><b>인터넷 출입구는 하나:</b> 인터넷 출입은 hub 의 방화벽을 거친다. spoke 에는 IGW · NAT gateway 를 두지 않는다.</li>
+    <li><b>OCI 서비스는 spoke 마다:</b> spoke 는 각자 SGW 로 Object Storage 같은 OCI 서비스에 나간다. OCI 가 요청이 어느 VCN 에서 왔는지 구분하므로 VCN 별 접근 제어를 할 수 있고, hub 경로의 장애가 번지지 않는다.</li>
+    <li><b>운영 ↔ 개발 차단, 관리망은 전체 접근:</b> 관리 VCN 의 모니터링 · 접근제어 · DB 암호화 서버는 모든 VCN 에 닿아야 한다.</li>
+    <li><b>업무 단위 compartment:</b> HUB, E-COMMERCE, ERP, MGMT 로 나눠 권한과 비용을 업무별로 본다.</li>
+    <li><b>관리형 서비스 우선:</b> DB, Cache, LB 는 OCI 관리형 서비스를 먼저 검토하고, 직접 운영하는 서버를 줄인다.</li>
+    <li><b>늘릴 자리를 남긴 주소:</b> VCN 은 /16, subnet 은 세 번째 옥텟을 16 단위로 잡아 /20 까지 제자리 확장할 수 있게 한다.</li>
+  </ul>
+</section>
+
+<section class="page">
+  <h3>2.4 네트워크 설계값</h3>
+  <table>
+    <thead><tr><th>VCN</th><th>compartment</th><th>CIDR</th><th>subnet</th><th>구분</th></tr></thead>
+    <tr><td>hub</td><td>HUB</td><td>10.0.0.0/16</td><td>FW untrust · trust · mgmt · HA, WAF, DNS</td><td>공용</td></tr>
+    <tr><td>ec-prd</td><td>E-COMMERCE</td><td>10.1.0.0/16</td><td>LB · WEB · ADMIN · CACHE · DB</td><td>운영</td></tr>
+    <tr><td>ec-dev</td><td>E-COMMERCE</td><td>10.2.0.0/16</td><td>LB · WEB · ADMIN · CACHE · DB</td><td>개발</td></tr>
+    <tr><td>mgmt</td><td>MGMT</td><td>10.3.0.0/16</td><td>bastion · 모니터링 · CI · CD · DB 접근제어 · DB 암호화</td><td>관리</td></tr>
+    <tr><td>erp-prd</td><td>ERP</td><td>10.4.0.0/16</td><td>LB · WEB · ADMIN · CACHE · DB</td><td>운영</td></tr>
+    <tr><td>erp-dev</td><td>ERP</td><td>10.5.0.0/16</td><td>LB · WEB · ADMIN · CACHE · DB</td><td>개발</td></tr>
+  </table>
+  <p>업무 VCN 의 subnet 은 LB 10.x.0.0/24, WEB 10.x.16.0/24, ADMIN 10.x.32.0/24, CACHE 10.x.48.0/24, DB 10.x.64.0/24 로 통일한다. 본사 대역 192.168.10.0/24 와 겹치지 않는다. 위 값은 발주기관 기준안이며, 수행사는 설계 단계에서 변경을 제안할 수 있다.</p>
+
+  <h3>2.5 주요 트래픽 흐름</h3>
+  <table>
+    <thead><tr><th>흐름</th><th>경로와 통제</th></tr></thead>
+    <tr><td class="name">고객 → 온라인몰</td><td>인터넷 → hub 외부 LB → WAF → 방화벽 → DRG → ec-prd 내부 LB → WEB. 웹 공격은 WAF, 그 밖의 통제는 방화벽이 맡는다.</td></tr>
+    <tr><td class="name">spoke → 인터넷</td><td>spoke 기본 경로 → DRG → hub → 방화벽 (SNAT) → IGW. 외부에서 보이는 주소는 방화벽의 공인 IP 하나다 (PG · 택배 API 의 허용 IP 등록에 쓴다).</td></tr>
+    <tr><td class="name">운영 ↔ 개발</td><td>DRG → hub → 방화벽에서 차단. 이커머스 운영 ↔ ERP 운영은 허용 (주문 · 정산 연동).</td></tr>
+    <tr><td class="name">관리 → 전체</td><td>mgmt 에서 모든 VCN 으로 허용 (모니터링, DB 접근제어, DB 암호화, 배포).</td></tr>
+    <tr><td class="name">본사 ↔ 클라우드</td><td>IPSec VPN → DRG → hub → 방화벽 → 대상 VCN. ERP 사용자 접속과 관리자 접속에 쓴다.</td></tr>
+    <tr><td class="name">spoke → OCI 서비스</td><td>spoke 의 SGW → Object Storage 등. hub 와 방화벽을 거치지 않아 백업 · 로그 같은 대용량 트래픽이 방화벽 성능을 쓰지 않는다.</td></tr>
+  </table>
+</section>
+
+<!-- 3. 요구사항 -->
+<section class="page join">
+  <h2>3. 제안 요청 내용 (요구사항)</h2>
+
+  <h3>3.1 요구사항 총괄표</h3>
+  <table>
+    <thead><tr><th>구분</th><th>ID</th><th class="num">개수</th><th>요점</th></tr></thead>
+    <tr><td>시스템 장비 구성</td><td>ECR</td><td class="num">5</td><td>리전, 업무별 자원, 공통 · 보안 자원, 산정 근거</td></tr>
+    <tr><td>기능</td><td>SFR</td><td class="num">14</td><td>compartment, VCN, DRG, 방화벽, WAF, VPN, DNS, 업무 인프라, 로그, 백업</td></tr>
+    <tr><td>성능</td><td>PER</td><td class="num">3</td><td>동시 사용자, 자동 확장, 방화벽 처리량</td></tr>
+    <tr><td>인터페이스</td><td>SIR</td><td class="num">3</td><td>본사, 외부 API, 이커머스 ↔ ERP</td></tr>
+    <tr><td>데이터</td><td>DAR</td><td class="num">3</td><td>이관, 보존 기간, 백업 · 복구 목표</td></tr>
+    <tr><td>테스트</td><td>TER</td><td class="num">4</td><td>통신, 성능, 장애 절체, 취약점</td></tr>
+    <tr><td>보안</td><td>SER</td><td class="num">7</td><td>개인정보 법령, 접근통제, 암호화, 접속기록, 권한, 네트워크, 클라우드 설정</td></tr>
+    <tr><td>품질</td><td>QUR</td><td class="num">3</td><td>가용성, 문서, 구성 코드화</td></tr>
+    <tr><td>제약사항</td><td>COR</td><td class="num">4</td><td>작업 범위, 변경 통제, 보안 서약, 제품 중립</td></tr>
+    <tr><td>프로젝트 관리</td><td>PMR</td><td class="num">4</td><td>보고, 인력, 위험, 산출물</td></tr>
+    <tr><td>프로젝트 지원</td><td>PSR</td><td class="num">3</td><td>교육, 안정화, 하자보수</td></tr>
+    <tr><th colspan="2">합계</th><th class="num">53</th><th></th></tr>
+  </table>
+
+  <h3>3.2 상세 요구사항</h3>
+  <h4>시스템 장비 구성 (ECR)</h4>
+  <table>
+    <thead><tr><th>ID</th><th>명칭</th><th>내용</th></tr></thead>
+    <tr><td class="id">ECR-001</td><td class="name">리전 · 가용성</td><td>OCI 서울 리전을 쓴다. 운영 서버는 2대 이상을 서로 다른 fault domain 에 둔다.</td></tr>
+    <tr><td class="id">ECR-002</td><td class="name">이커머스 자원</td><td>운영: WEB 2~6대 (자동 확장, 2 OCPU · 16GB 기준), ADMIN 2대, Cache 2노드, MySQL HA (4 OCPU). 개발: WEB 1대, ADMIN 1대, Cache 1노드, MySQL 단일 (2 OCPU).</td></tr>
+    <tr><td class="id">ECR-003</td><td class="name">ERP 자원</td><td>운영: AP 2대 (4 OCPU · 32GB), DB HA (8 OCPU). 개발: AP 1대, DB 단일 (2 OCPU).</td></tr>
+    <tr><td class="id">ECR-004</td><td class="name">공통 · 보안 자원</td><td>방화벽 2대 (Active-Passive), WAF 2대 (Active-Active) 와 외부 LB, bastion, 모니터링 서버, CI/CD 서버, DB 접근제어 · DB 암호화 서버.</td></tr>
+    <tr><td class="id">ECR-005</td><td class="name">자원 산정 근거</td><td>제안사는 ECR-002~004 를 현행 사용량과 피크 트래픽으로 다시 산정해 근거와 함께 제출하고, 월 클라우드 사용료 추정치를 포함한다.</td></tr>
+  </table>
+
+  <h4>기능 (SFR)</h4>
+  <table>
+    <thead><tr><th>ID</th><th>명칭</th><th>내용</th></tr></thead>
+    <tr><td class="id">SFR-001</td><td class="name">compartment · IAM</td><td>HUB, E-COMMERCE, ERP, MGMT compartment 를 만들고, 역할별 그룹에 최소 권한 정책을 준다. 발주기관이 지정한 상위 compartment 아래에만 만든다.</td></tr>
+    <tr><td class="id">SFR-002</td><td class="name">Hub VCN</td><td>방화벽 untrust · trust · mgmt · HA, WAF, DNS subnet 을 둔다. IGW 는 hub 에만 둔다.</td></tr>
+    <tr><td class="id">SFR-003</td><td class="name">Spoke VCN</td><td>업무별 VCN 5개를 만들고 계층별 subnet (LB · WEB · ADMIN · CACHE · DB) 을 private 으로 둔다. 기본 경로는 DRG 로 보내고, OCI 서비스용 SGW 를 VCN 마다 둔다.</td></tr>
+    <tr><td class="id">SFR-004</td><td class="name">DRG 라우팅</td><td>spoke 끼리 직접 통신하지 않고 모든 spoke 트래픽이 hub 를 거친다. spoke 를 추가할 때 기존 spoke 의 설정은 바꾸지 않는다.</td></tr>
+    <tr><td class="id">SFR-005</td><td class="name">방화벽 (NVA)</td><td>이중화하고, spoke 의 인터넷 출구를 단일 공인 IP 로 SNAT 한다. zone 기반 정책으로 운영 ↔ 개발을 차단하고 관리 VCN 은 전체 허용한다.</td></tr>
+    <tr><td class="id">SFR-006</td><td class="name">웹 방화벽 (WAF)</td><td>온라인몰 인바운드 경로에 이중화해 두고, OWASP Top 10 유형의 공격을 탐지 · 차단한다. 인증서 갱신 절차를 포함한다.</td></tr>
+    <tr><td class="id">SFR-007</td><td class="name">본사 VPN</td><td>OCI 와 본사를 IPSec VPN (터널 2개) 으로 잇는다. 본사 장비 설정은 발주기관이 하고 수행사는 설정값을 제공한다.</td></tr>
+    <tr><td class="id">SFR-008</td><td class="name">DNS</td><td>본사와 OCI 사이에서 서로의 내부 이름을 해석할 수 있게 hub DNS subnet 에 resolver endpoint 를 둔다.</td></tr>
+    <tr><td class="id">SFR-009</td><td class="name">이커머스 인프라</td><td>외부 LB → WAF → 내부 LB → WEB (자동 확장) → Cache · DB 구조로 만든다. ADMIN 은 본사 대역에서만 접근한다.</td></tr>
+    <tr><td class="id">SFR-010</td><td class="name">ERP 인프라</td><td>인터넷에 노출하지 않고 본사 VPN 으로만 접속한다. 이커머스 운영과 주문 · 정산 연동 경로를 둔다.</td></tr>
+    <tr><td class="id">SFR-011</td><td class="name">관리 인프라</td><td>bastion (접속 경로 단일화), 모니터링, CI/CD, DB 접근제어, DB 암호화 서버를 관리 VCN 에 둔다.</td></tr>
+    <tr><td class="id">SFR-012</td><td class="name">로그 수집</td><td>VCN flow log, 감사 로그, 서버 syslog 를 업무별 Object Storage 버킷으로 모은다. 버킷은 공개 접근을 막는다.</td></tr>
+    <tr><td class="id">SFR-013</td><td class="name">모니터링 · 알림</td><td>자원 사용률, 서비스 상태, 방화벽 · VPN 상태를 수집하고 임계치를 넘으면 메일 · 메신저로 알린다.</td></tr>
+    <tr><td class="id">SFR-014</td><td class="name">백업</td><td>DB 자동 백업 (보존 30일 이상), 부트 볼륨 백업 정책, 복구 절차서를 만들고 복구 시험을 한 번 이상 한다.</td></tr>
+  </table>
+
+  <h4>성능 (PER) · 인터페이스 (SIR)</h4>
+  <table>
+    <thead><tr><th>ID</th><th>명칭</th><th>내용</th></tr></thead>
+    <tr><td class="id">PER-001</td><td class="name">동시 사용자</td><td>평시 1,000명, 피크 5,000명 동시 접속에서 WEB 계층 CPU 사용률 70% 이하를 유지한다.</td></tr>
+    <tr><td class="id">PER-002</td><td class="name">자동 확장</td><td>WEB 은 최소 2대, 최대 6대로 자동 확장하고, 확장 판단부터 서비스 투입까지 10분 이내다.</td></tr>
+    <tr><td class="id">PER-003</td><td class="name">방화벽 처리량</td><td>피크 트래픽의 2배 이상을 처리할 수 있어야 하며, 성능 시험으로 증명한다.</td></tr>
+    <tr><td class="id">SIR-001</td><td class="name">본사 연계</td><td>본사 사용자는 VPN 으로 ERP 와 관리 화면에 접속한다. 본사 대역은 192.168.10.0/24 다.</td></tr>
+    <tr><td class="id">SIR-002</td><td class="name">외부 API 연계</td><td>PG (결제대행), 택배 조회, 본인인증 API 로 나가는 트래픽은 공인 IP 하나로 나간다. 이 IP 가 바뀌면 상대 기관에 미리 알린다.</td></tr>
+    <tr><td class="id">SIR-003</td><td class="name">이커머스 ↔ ERP</td><td>운영끼리 (주문 · 매출 · 재고), 개발끼리 연동을 허용하고 필요한 포트만 연다. 운영 ↔ 개발 교차 연동은 막는다.</td></tr>
+  </table>
+
+  <h4>데이터 (DAR) · 테스트 (TER)</h4>
+  <table>
+    <thead><tr><th>ID</th><th>명칭</th><th>내용</th></tr></thead>
+    <tr><td class="id">DAR-001</td><td class="name">데이터 이관</td><td>이커머스 DB (약 500GB), ERP DB (약 1TB), 상품 이미지 (약 2TB, Object Storage 로) 를 옮긴다. 리허설 2회 이상, 건수 · 체크섬으로 정합성을 검증한다.</td></tr>
+    <tr><td class="id">DAR-002</td><td class="name">보존 기간</td><td>「전자상거래법 시행령」 제6조의 거래기록 보존 기간 (표시 · 광고 6개월, 계약 · 청약철회 5년, 대금결제 · 재화공급 5년, 불만 · 분쟁처리 3년) 을 지킬 수 있는 저장 구조와 수명주기 정책을 둔다.</td></tr>
+    <tr><td class="id">DAR-003</td><td class="name">복구 목표</td><td>운영 DB 는 RPO 1시간, RTO 4시간 이내로 복구할 수 있어야 한다 (시점 복구 포함).</td></tr>
+    <tr><td class="id">TER-001</td><td class="name">통신 시험</td><td>2.5 의 흐름마다 허용과 차단을 모두 시험한다 (e.g., 운영 → 개발이 실제로 막히는지).</td></tr>
+    <tr><td class="id">TER-002</td><td class="name">성능 시험</td><td>PER-001~003 을 부하 시나리오로 시험하고 자동 확장 동작을 기록한다.</td></tr>
+    <tr><td class="id">TER-003</td><td class="name">장애 시험</td><td>방화벽 · WAF 절체, DB failover, fault domain 장애를 가정해 시험하고 절체 시간을 잰다.</td></tr>
+    <tr><td class="id">TER-004</td><td class="name">취약점 점검</td><td>오픈 전에 인프라 취약점 점검과 외부 전문기관의 모의해킹을 받고, 조치 결과를 제출한다.</td></tr>
+  </table>
+
+  <h4>보안 (SER)</h4>
+  <table>
+    <thead><tr><th>ID</th><th>명칭</th><th>내용</th></tr></thead>
+    <tr><td class="id">SER-001</td><td class="name">법령 준수</td><td>「개인정보 보호법」과 「개인정보의 안전성 확보조치 기준」 (개인정보보호위원회 고시) 의 기술적 보호조치를 충족한다.</td></tr>
+    <tr><td class="id">SER-002</td><td class="name">접근통제</td><td>개인정보처리시스템 접속을 IP 등으로 제한하고, 외부에서 접속할 때는 OTP 같은 안전한 인증수단을 쓴다 (고시 제6조). DB 접속은 DB 접근제어를 거친다.</td></tr>
+    <tr><td class="id">SER-003</td><td class="name">암호화</td><td>고시 제7조 대상 (주민등록번호, 여권번호, 운전면허번호, 외국인등록번호, 신용카드번호, 계좌번호, 생체인식정보) 은 암호화해 저장하고, 비밀번호는 일방향 암호화한다. 인터넷 구간은 TLS 로 보낸다.</td></tr>
+    <tr><td class="id">SER-004</td><td class="name">접속기록</td><td>개인정보처리시스템 접속기록을 2년 이상 보관한다 (5만 명 이상 처리 시스템, 고시 제8조). 위 · 변조를 막도록 보존 규칙을 건 저장소에 둔다.</td></tr>
+    <tr><td class="id">SER-005</td><td class="name">계정 · 권한</td><td>개인별 계정, 최소 권한, 관리자 MFA 를 적용하고, 권한 부여 · 변경 · 말소 내역을 3년 이상 보관한다 (고시 제5조).</td></tr>
+    <tr><td class="id">SER-006</td><td class="name">네트워크 보안</td><td>관리 포트 (SSH, 관리 GUI) 를 인터넷에 열지 않고 본사 · bastion 에서만 접근한다. 기본 security list 의 전체 허용 규칙을 정리한다.</td></tr>
+    <tr><td class="id">SER-007</td><td class="name">클라우드 보안 설정</td><td>Cloud Guard 등 OCI 보안 서비스 적용을 검토하고, 버킷 공개 접근 금지와 감사 로그 보존을 설정한다. 업무별 버킷은 IAM network source 로 해당 업무 VCN 에서만 접근하게 한다.</td></tr>
+  </table>
+
+  <h4>품질 (QUR) · 제약사항 (COR)</h4>
+  <table>
+    <thead><tr><th>ID</th><th>명칭</th><th>내용</th></tr></thead>
+    <tr><td class="id">QUR-001</td><td class="name">가용성</td><td>운영 서비스 월 가용률 99.9% 를 목표로 단일 장애점을 없앤다 (계획 정지 제외).</td></tr>
+    <tr><td class="id">QUR-002</td><td class="name">문서 품질</td><td>산출물은 발주기관 양식을 따르고, 설계서의 값과 실제 구성이 일치함을 구성 점검표로 증명한다.</td></tr>
+    <tr><td class="id">QUR-003</td><td class="name">구성 코드화</td><td>네트워크 · 보안 · 서버 구성은 코드 (e.g., Terraform) 로 관리해 같은 구성을 다시 만들 수 있게 한다.</td></tr>
+    <tr><td class="id">COR-001</td><td class="name">작업 범위</td><td>발주기관이 지정한 상위 compartment 아래에서만 작업한다. 그 상위와 다른 compartment 의 리소스는 바꾸거나 지우지 않는다.</td></tr>
+    <tr><td class="id">COR-002</td><td class="name">변경 통제</td><td>운영 오픈 후 모든 변경은 변경 요청서 승인 뒤에 한다. 콘솔에서 수동으로 바꾸지 않고 코드로 바꾼다.</td></tr>
+    <tr><td class="id">COR-003</td><td class="name">보안 서약</td><td>투입 인력은 보안 서약서를 낸다. 계정 · 비밀번호 · 키를 공유하지 않고, 산출물을 외부로 가져가지 않는다.</td></tr>
+    <tr><td class="id">COR-004</td><td class="name">제품 중립</td><td>이 RFP 는 특정 제품을 지정하지 않는다. 제안사는 요구사항을 충족하는 동등 이상의 제품을 제안한다.</td></tr>
+  </table>
+
+  <h4>프로젝트 관리 (PMR) · 지원 (PSR)</h4>
+  <table>
+    <thead><tr><th>ID</th><th>명칭</th><th>내용</th></tr></thead>
+    <tr><td class="id">PMR-001</td><td class="name">사업 관리</td><td>착수 · 중간 · 완료 보고회, 주간 보고, WBS 기반 일정 관리.</td></tr>
+    <tr><td class="id">PMR-002</td><td class="name">투입 인력</td><td>PM, 클라우드 아키텍트, 네트워크 · 보안, 시스템, DB 엔지니어. PM 은 클라우드 구축 PM 경험 3건 이상. 핵심 인력을 바꿀 때는 발주기관 승인을 받는다.</td></tr>
+    <tr><td class="id">PMR-003</td><td class="name">위험 · 이슈</td><td>위험 · 이슈 대장을 운영하고, 해결 기한을 넘긴 이슈는 정해진 단계로 보고한다.</td></tr>
+    <tr><td class="id">PMR-004</td><td class="name">산출물</td><td>사업수행계획서, 요구사항 추적표, 아키텍처 · 네트워크 · 보안 설계서, 이관 계획 · 결과서, 시험 계획 · 결과서, 운영 매뉴얼, 완료 보고서.</td></tr>
+    <tr><td class="id">PSR-001</td><td class="name">교육 · 기술 이전</td><td>운영자 교육 16시간 이상 (실습 포함), 구성 코드와 운영 절차 인계.</td></tr>
+    <tr><td class="id">PSR-002</td><td class="name">안정화</td><td>오픈 후 1개월 상주 지원, 장애 대응과 성능 조정.</td></tr>
+    <tr><td class="id">PSR-003</td><td class="name">하자보수</td><td>검수 후 12개월 무상. 긴급 장애는 접수 후 2시간 이내 대응한다.</td></tr>
+  </table>
+</section>
+
+<!-- 4~6 -->
+<section class="page">
+  <h2>4. 제안서 작성 안내</h2>
+  <table>
+    <thead><tr><th>장</th><th>내용</th></tr></thead>
+    <tr><td class="name">I. 제안 개요</td><td>사업 이해, 추진 전략, 제안의 특장점</td></tr>
+    <tr><td class="name">II. 제안사 일반</td><td>회사 현황, 유사 사업 실적 (클라우드 전환 · 네트워크 보안)</td></tr>
+    <tr><td class="name">III. 기술 부문</td><td>목표 아키텍처, 네트워크 · 보안 설계, 자원 산정 (ECR-005), 이관 · 전환 계획, 시험 계획</td></tr>
+    <tr><td class="name">IV. 사업 관리</td><td>조직 · 인력 · 역할 (R&amp;R), 일정, 위험 관리, 품질 관리</td></tr>
+    <tr><td class="name">V. 지원 부문</td><td>교육 · 기술 이전, 안정화, 하자보수</td></tr>
+  </table>
+  <p>본문은 100쪽 이내로 쓰고, 요구사항 추적표 (요구사항 ID ↔ 제안서 쪽수) 를 부록으로 붙인다. 추적표가 없거나 누락된 요구사항은 "미제안" 으로 본다.</p>
+
+  <h2 style="margin-top:28px">5. 제안서 평가</h2>
+  <table>
+    <thead><tr><th>평가 항목</th><th class="num">배점</th><th>주요 기준</th></tr></thead>
+    <tr><td>사업 이해도</td><td class="num">10</td><td>배경 · 목적 이해, 현황 문제 분석</td></tr>
+    <tr><td>목표 아키텍처</td><td class="num">20</td><td>Hub &amp; Spoke 설계의 타당성, 확장성, 가용성</td></tr>
+    <tr><td>보안</td><td class="num">20</td><td>운영 · 개발 분리, 개인정보 보호조치, 방화벽 · WAF 설계</td></tr>
+    <tr><td>이관 · 전환</td><td class="num">15</td><td>이관 방식, 리허설, 중단 시간 최소화, 원복 계획</td></tr>
+    <tr><td>시험 · 품질</td><td class="num">10</td><td>시험 범위 (허용 · 차단 모두), 장애 시험, 구성 검증</td></tr>
+    <tr><td>사업 관리 · 인력</td><td class="num">10</td><td>R&amp;R 명확성, 인력 경력, 일정 현실성</td></tr>
+    <tr><td>지원 · 기술 이전</td><td class="num">5</td><td>교육 계획, 운영 인계 방식</td></tr>
+    <tr><th>기술 소계</th><th class="num">90</th><th>기술 점수가 배점의 85% (76.5점) 미만이면 협상 대상에서 제외</th></tr>
+    <tr><td>가격</td><td class="num">10</td><td>예정 가격 대비 입찰 가격</td></tr>
+  </table>
+
+  <h2 style="margin-top:28px">6. 입찰 및 제출 안내</h2>
+  <div class="req">
+  <table>
+    <thead><tr><th>일정 (가상)</th><th>내용</th></tr></thead>
+    <tr><td>2026. 12. 1.</td><td>공고</td></tr>
+    <tr><td>2026. 12. 8.</td><td>사업 설명회 (온라인)</td></tr>
+    <tr><td>2026. 12. 11.</td><td>질의 마감 (서면, 답변은 전체 공개)</td></tr>
+    <tr><td>2026. 12. 18.</td><td>제안서 제출 마감</td></tr>
+    <tr><td>2026. 12. 22.</td><td>제안 발표 (20분 발표, 20분 질의)</td></tr>
+    <tr><td>2026. 12. 24.</td><td>우선협상대상자 선정 통보</td></tr>
+  </table>
+  </div>
+  <p>제출 서류: 제안서 (PDF), 요구사항 추적표, 가격 제안서 (별도 봉인), 투입 인력 경력 증명, 보안 서약서. 문의: ○○리테일 IT전략팀 (가상).</p>
+</section>
+
+<!-- 부록 -->
+<section class="page">
+  <h2>부록. 용어 정리</h2>
+  <table>
+    <thead><tr><th>용어</th><th>뜻</th></tr></thead>
+    <tr><td class="name">Hub &amp; Spoke</td><td>공용 장비 (방화벽, 게이트웨이) 를 hub 에 모으고 업무 네트워크 (spoke) 는 hub 를 거쳐서만 밖과 서로에게 닿게 하는 구조</td></tr>
+    <tr><td class="name">VCN</td><td>OCI 의 가상 네트워크. 하나의 CIDR 범위를 갖고 subnet 으로 나눈다.</td></tr>
+    <tr><td class="name">compartment</td><td>OCI 리소스를 묶는 논리 폴더. 권한 정책과 비용 집계의 단위다.</td></tr>
+    <tr><td class="name">DRG</td><td>Dynamic Routing Gateway. VCN, VPN, 전용회선을 잇는 가상 라우터. DRG route table 로 attachment 사이 경로를 정한다.</td></tr>
+    <tr><td class="name">IGW · SGW</td><td>Internet Gateway (인터넷 출입), Service Gateway (인터넷을 거치지 않고 Object Storage 같은 OCI 서비스로 가는 문)</td></tr>
+    <tr><td class="name">NVA</td><td>Network Virtual Appliance. VM 으로 동작하는 방화벽 · 라우터 (e.g., 상용 방화벽 VM, VyOS)</td></tr>
+    <tr><td class="name">WAF</td><td>Web Application Firewall. SQL injection 같은 웹 공격을 막는 장비</td></tr>
+    <tr><td class="name">SNAT</td><td>내부 주소를 공인 IP 로 바꿔 내보내는 것. spoke 가 인터넷으로 나갈 때 방화벽이 한다.</td></tr>
+    <tr><td class="name">fault domain</td><td>같은 가용 영역 안에서 하드웨어를 나눠 둔 단위. 서버를 서로 다른 fault domain 에 두면 장비 하나의 장애가 서비스 전체를 멈추지 않는다.</td></tr>
+    <tr><td class="name">RPO · RTO</td><td>RPO 는 장애 때 잃어도 되는 데이터의 시간 범위, RTO 는 복구까지 걸려도 되는 시간</td></tr>
+    <tr><td class="name">A-P · A-A</td><td>Active-Passive (한 대만 처리하고 한 대는 대기), Active-Active (두 대가 나눠 처리)</td></tr>
+    <tr><td class="name">PG</td><td>Payment Gateway. 카드 결제를 대행하는 회사. 보통 접속하는 쪽의 공인 IP 를 미리 등록받는다.</td></tr>
+  </table>
+</section>
+
+</body>
+</html>

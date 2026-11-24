@@ -1,0 +1,160 @@
+:root {
+  --ink: #1c2330;
+  --muted: #5b6577;
+  --line: #d6dbe4;
+  --soft: #f3f5f9;
+  --accent: #c74634;
+  --accent-soft: #fbeceA;
+  --navy: #22324d;
+  --hub: #fdf1ee;
+  --spoke: #eef3fb;
+  --mgmt: #eef8f1;
+}
+* { box-sizing: border-box; }
+html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+body {
+  margin: 0;
+  background: #e9ecf1;
+  color: var(--ink);
+  font-family: "Pretendard", "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif;
+  font-size: 10.5pt;
+  line-height: 1.65;
+  word-break: keep-all;
+}
+.page {
+  max-width: 210mm;
+  margin: 16px auto;
+  padding: 18mm 16mm;
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(0,0,0,.08);
+}
+h1, h2, h3, h4 { color: var(--navy); line-height: 1.35; }
+h2 {
+  font-size: 16pt;
+  margin: 0 0 12px;
+  padding-bottom: 6px;
+  border-bottom: 2px solid var(--navy);
+}
+h3 { font-size: 12.5pt; margin: 22px 0 8px; }
+h4 { font-size: 11pt; margin: 16px 0 6px; }
+p { margin: 6px 0 10px; }
+ul, ol { margin: 6px 0 10px; padding-left: 20px; }
+li { margin: 2px 0; }
+code {
+  font-family: "SF Mono", "Menlo", "Consolas", monospace;
+  font-size: 9pt;
+  background: var(--soft);
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+table { width: 100%; border-collapse: collapse; margin: 8px 0 14px; font-size: 9.5pt; }
+th, td { border: 1px solid var(--line); padding: 6px 8px; vertical-align: top; text-align: left; }
+th { background: var(--soft); color: var(--navy); font-weight: 700; white-space: nowrap; }
+tr { break-inside: avoid; }
+thead { display: table-header-group; }
+.req { break-inside: avoid; }
+td.id { white-space: nowrap; font-weight: 700; color: var(--accent); width: 72px; }
+td.name { width: 150px; font-weight: 600; }
+td.num, th.num { text-align: right; white-space: nowrap; }
+td:first-child code { white-space: nowrap; }
+.kv th { width: 120px; }
+.note {
+  border-left: 3px solid var(--navy);
+  background: var(--soft);
+  padding: 8px 12px;
+  margin: 10px 0 14px;
+  font-size: 9.5pt;
+}
+.note.warn { border-left-color: var(--accent); background: var(--accent-soft); }
+.tag {
+  display: inline-block;
+  font-size: 8pt;
+  font-weight: 700;
+  padding: 0 6px;
+  border-radius: 3px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  margin-left: 4px;
+  vertical-align: 1px;
+}
+.ph { color: var(--accent); font-weight: 600; }
+
+/* 표지 */
+.cover { display: flex; flex-direction: column; justify-content: space-between; min-height: 257mm; }
+.cover .eyebrow { font-size: 11pt; letter-spacing: .2em; color: var(--accent); font-weight: 700; }
+.cover h1 { font-size: 30pt; margin: 14px 0 6px; letter-spacing: -.01em; }
+.cover .sub { font-size: 15pt; color: var(--muted); margin: 0; }
+.cover .bar { height: 6px; width: 72px; background: var(--accent); margin: 28px 0; }
+.cover table { width: auto; min-width: 60%; font-size: 10.5pt; }
+.cover .issuer { font-size: 15pt; font-weight: 700; color: var(--navy); }
+.cover .fine { font-size: 9pt; color: var(--muted); }
+
+/* 목차 */
+.toc ol { list-style: none; padding: 0; counter-reset: none; }
+.toc li { display: flex; gap: 8px; padding: 5px 0; border-bottom: 1px dotted var(--line); }
+.toc li span:first-child { width: 28px; color: var(--accent); font-weight: 700; }
+.toc li.sub { padding-left: 28px; font-size: 9.5pt; color: var(--muted); border-bottom: none; padding-top: 1px; padding-bottom: 1px; }
+
+figure { margin: 10px 0 14px; }
+figcaption { font-size: 9pt; color: var(--muted); text-align: center; margin-top: 4px; }
+svg text { font-family: "Pretendard", "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif; }
+
+@page { size: A4; margin: 16mm 15mm 18mm; @bottom-center { content: counter(page); font-size: 8.5pt; color: #8a93a3; } }
+@page :first { @bottom-center { content: none; } }
+@media print {
+  body { background: #fff; }
+  .page { margin: 0; padding: 0; max-width: none; box-shadow: none; break-after: page; }
+  .page:last-child { break-after: auto; }
+  .cover { min-height: 255mm; }
+  h2, h3, h4 { break-after: avoid; }
+  figure, .note { break-inside: avoid; }
+}
+@media screen and (max-width: 820px) {
+  .page { margin: 0; padding: 20px 16px; }
+  table { display: block; overflow-x: auto; }
+  .cover { min-height: auto; gap: 40px; }
+}
+
+/* 온보딩 문서 추가분 */
+pre {
+  font-family: "SF Mono", "Menlo", "Consolas", monospace;
+  font-size: 8.5pt;
+  line-height: 1.5;
+  background: #f6f8fb;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--navy);
+  padding: 8px 12px;
+  margin: 6px 0 12px;
+  white-space: pre-wrap;
+  word-break: break-all;
+  break-inside: avoid;
+}
+pre code { background: none; padding: 0; font-size: inherit; }
+pre .c { color: #7a8599; }
+.meta { display: flex; flex-wrap: wrap; gap: 6px; margin: -4px 0 12px; }
+.meta span { font-size: 8.5pt; color: var(--muted); background: var(--soft); border: 1px solid var(--line); border-radius: 10px; padding: 0 8px; }
+ol.steps { list-style: none; padding-left: 0; counter-reset: s; }
+ol.steps > li { counter-increment: s; position: relative; padding-left: 30px; margin: 8px 0; }
+ol.steps > li::before {
+  content: counter(s);
+  position: absolute; left: 0; top: 2px;
+  width: 20px; height: 20px; border-radius: 50%;
+  background: var(--navy); color: #fff;
+  font-size: 8.5pt; font-weight: 700; text-align: center; line-height: 20px;
+}
+ul.check { list-style: none; padding-left: 4px; }
+ul.check li::before { content: "☐ "; color: var(--navy); }
+.ui { font-weight: 700; color: var(--navy); }
+table.raci { font-size: 8.5pt; }
+table.raci th, table.raci td { text-align: center; padding: 4px 2px; white-space: nowrap; }
+table.raci th:first-child, table.raci td:first-child { text-align: left; padding-left: 6px; white-space: normal; }
+table.raci th.grp { background: var(--navy); color: #fff; }
+table.raci td.a { background: var(--accent-soft); color: var(--accent); font-weight: 700; }
+table.raci td.r { color: var(--navy); font-weight: 700; }
+table.raci tr.phase td { background: var(--soft); font-weight: 700; color: var(--navy); text-align: left; }
+.ans { font-size: 9.5pt; color: var(--muted); }
+/* 내용이 조금 넘칠 때 빈 페이지가 생기지 않게: .join 은 다음 섹션과 이어서 흐른다 */
+@media print {
+  .page.join { break-after: auto; }
+  .page.join + .page > h2:first-child, .page.join + .page > h3:first-child { margin-top: 28px; }
+}

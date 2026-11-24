@@ -1,0 +1,557 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hub &amp; Spoke 구축 실습</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- 표지 -->
+<section class="page cover">
+  <div>
+    <div class="eyebrow">구축 실습 가이드 · 신입 온보딩</div>
+    <h1>OCI Hub &amp; Spoke<br>구축 실습</h1>
+    <p class="sub">콘솔로 직접 만들고, 왜 그렇게 만드는지 이해한다</p>
+    <div class="bar"></div>
+    <table class="kv">
+      <tr><th>대상</th><td>신입 클라우드 · 네트워크 엔지니어</td></tr>
+      <tr><th>소요</th><td>2일 (하루 약 4시간) + 과제</td></tr>
+      <tr><th>환경</th><td>OCI 서울 리전, 강사가 만든 실습 compartment</td></tr>
+      <tr><th>선수 문서</th><td>「01. 제안요청서」 2장, 「02. R&amp;R」 8장</td></tr>
+    </table>
+  </div>
+  <div>
+    <p class="fine">설계값은 사내 OCI 랜딩존 저장소 (<code>config/</code>) 를 줄인 것이다. 실습에서 콘솔로 한 일은 부록 B 에서 저장소의 파일과 명령에 하나씩 짝지어 볼 수 있다.</p>
+  </div>
+</section>
+
+<!-- 목차 -->
+<section class="page toc">
+  <h2>목차</h2>
+  <ol>
+    <li><span>0</span><span>실습 개요와 준비</span></li>
+    <li><span>1</span><span>Compartment 만들기</span></li>
+    <li><span>2</span><span>Hub VCN 만들기</span></li>
+    <li><span>3</span><span>Spoke VCN 만들기</span></li>
+    <li><span>4</span><span>DRG 와 라우팅</span></li>
+    <li><span>5</span><span>NVA (VyOS) 인스턴스와 VNIC</span></li>
+    <li><span>6</span><span>VyOS 설정</span></li>
+    <li><span>7</span><span>NVA 경로 켜기</span></li>
+    <li><span>8</span><span>통신 검증</span></li>
+    <li><span>9</span><span>정리 (삭제)</span></li>
+    <li><span>과제</span><span>ERP 추가, IaC 로 다시 만들기, VNIC 순서 실험</span></li>
+    <li><span>부록</span><span>A. 트러블슈팅 · B. IaC 대응표 · C. 확인 문제와 해설</span></li>
+  </ol>
+</section>
+
+<!-- Lab 0 -->
+<section class="page join">
+  <h2>Lab 0. 실습 개요와 준비</h2>
+
+  <h3>목표</h3>
+  <ul>
+    <li>spoke 에 IGW · NAT 가 없어도 hub 를 거쳐 인터넷에 나가는 경로를 직접 만든다.</li>
+    <li>DRG route table, VCN route table, DRG attachment 의 VCN route table 이 각각 어느 구간을 정하는지 구분한다.</li>
+    <li>라우터 VM (NVA) 에 VNIC 여러 개를 붙일 때의 함정 (순서, source/destination check, secondary IP) 을 겪어 본다.</li>
+    <li>운영 ↔ 개발 차단과 관리망 전체 허용을 방화벽 정책으로 만들고, 허용과 차단을 둘 다 시험한다.</li>
+  </ul>
+
+  <h3>완성 구성도</h3>
+  <figure>
+    <svg viewBox="0 0 760 390" width="100%" role="img" aria-label="실습 완성 구성도">
+      <defs>
+        <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#5b6577"/></marker>
+      </defs>
+      <rect x="20" y="14" width="120" height="40" rx="20" fill="#fff" stroke="#5b6577"/>
+      <text x="80" y="39" text-anchor="middle" font-size="12" fill="#1c2330">인터넷</text>
+      <rect x="620" y="14" width="120" height="40" rx="20" fill="#fff" stroke="#5b6577"/>
+      <text x="680" y="32" text-anchor="middle" font-size="11" fill="#1c2330">OCI 서비스</text>
+      <text x="680" y="46" text-anchor="middle" font-size="10" fill="#5b6577">(OSN)</text>
+
+      <rect x="150" y="70" width="460" height="150" rx="8" fill="#fdf1ee" stroke="#c74634" stroke-width="1.5"/>
+      <text x="162" y="90" font-size="12" font-weight="700" fill="#c74634">HUB_VCN 10.0.0.0/16 · HUB</text>
+      <rect x="128" y="104" width="44" height="26" rx="4" fill="#fff" stroke="#c74634"/>
+      <text x="150" y="121" text-anchor="middle" font-size="10" fill="#1c2330">IGW</text>
+      <rect x="588" y="104" width="44" height="26" rx="4" fill="#fff" stroke="#c74634"/>
+      <text x="610" y="121" text-anchor="middle" font-size="10" fill="#1c2330">SGW</text>
+      <line x1="140" y1="104" x2="95" y2="56" stroke="#5b6577" marker-end="url(#arr)"/>
+      <line x1="620" y1="104" x2="665" y2="56" stroke="#5b6577" marker-end="url(#arr)"/>
+      <g font-size="9.5" fill="#1c2330">
+        <rect x="190" y="104" width="86" height="40" rx="4" fill="#fff" stroke="#d6dbe4"/><text x="233" y="120" text-anchor="middle">UNTRUST</text><text x="233" y="134" text-anchor="middle" fill="#5b6577">10.0.0.0/24</text>
+        <rect x="282" y="104" width="86" height="40" rx="4" fill="#fff" stroke="#d6dbe4"/><text x="325" y="120" text-anchor="middle">TRUST</text><text x="325" y="134" text-anchor="middle" fill="#5b6577">10.0.16.0/24</text>
+        <rect x="374" y="104" width="86" height="40" rx="4" fill="#fff" stroke="#d6dbe4"/><text x="417" y="120" text-anchor="middle">MGMT</text><text x="417" y="134" text-anchor="middle" fill="#5b6577">10.0.32.0/24</text>
+        <rect x="466" y="104" width="86" height="40" rx="4" fill="#fff" stroke="#d6dbe4"/><text x="509" y="120" text-anchor="middle">HA</text><text x="509" y="134" text-anchor="middle" fill="#5b6577">10.0.48.0/28</text>
+      </g>
+      <rect x="190" y="152" width="362" height="28" rx="5" fill="#c74634"/>
+      <text x="371" y="170" text-anchor="middle" font-size="10.5" font-weight="700" fill="#fff">NVA (VyOS) · eth1 untrust · eth2 trust · eth3 ha · eth0 mgmt</text>
+      <text x="380" y="206" text-anchor="middle" font-size="9.5" fill="#c74634">DRG 에서 들어온 트래픽 → HUB_INGRESS_RT → trust VIP 10.0.16.160</text>
+
+      <rect x="320" y="250" width="120" height="34" rx="6" fill="#22324d"/>
+      <text x="380" y="266" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">HUB_DRG</text>
+      <text x="380" y="279" text-anchor="middle" font-size="8.5" fill="#cfd6e3">spoke 용 DRG_SPOKE_RT</text>
+      <line x1="380" y1="220" x2="380" y2="250" stroke="#22324d" stroke-width="2"/>
+
+      <g font-size="10" fill="#1c2330" text-anchor="middle">
+        <line x1="380" y1="284" x2="195" y2="320" stroke="#5b6577"/>
+        <line x1="380" y1="284" x2="380" y2="320" stroke="#5b6577"/>
+        <line x1="380" y1="284" x2="565" y2="320" stroke="#5b6577"/>
+        <rect x="110" y="320" width="170" height="56" rx="6" fill="#eef3fb" stroke="#8aa4cf"/>
+        <text x="195" y="338" font-weight="700">ec-prd 10.1.0.0/16</text><text x="195" y="353" fill="#5b6577">WEB 10.1.16.0/24 · 시험 VM</text><text x="195" y="367" fill="#5b6577" font-size="9">E-COMMERCE · 운영 · SGW</text>
+        <rect x="295" y="320" width="170" height="56" rx="6" fill="#eef3fb" stroke="#8aa4cf"/>
+        <text x="380" y="338" font-weight="700">ec-dev 10.2.0.0/16</text><text x="380" y="353" fill="#5b6577">WEB 10.2.16.0/24 · 시험 VM</text><text x="380" y="367" fill="#5b6577" font-size="9">E-COMMERCE · 개발 · SGW</text>
+        <rect x="480" y="320" width="170" height="56" rx="6" fill="#eef8f1" stroke="#7fb795"/>
+        <text x="565" y="338" font-weight="700">mgmt 10.3.0.0/16</text><text x="565" y="353" fill="#5b6577">MON 10.3.16.0/24 · Cloud Shell</text><text x="565" y="367" fill="#5b6577" font-size="9">MGMT · 전체 허용 · SGW</text>
+      </g>
+    </svg>
+    <figcaption>그림 1. 실습 완성 구성도 (실제 설계의 spoke 5개 중 3개, hub subnet 6개 중 4개만 만든다. 나머지는 과제. spoke 의 SGW 는 OCI 서비스 전용)</figcaption>
+  </figure>
+</section>
+
+<section class="page join">
+  <h3>일정</h3>
+  <table>
+    <thead><tr><th>일차</th><th>Lab</th><th class="num">시간</th><th>끝나면 되는 것</th></tr></thead>
+    <tr><td rowspan="5">1일차</td><td>0. 개요 · 준비</td><td class="num">30분</td><td>콘솔 접속, 실습 compartment 확인</td></tr>
+    <tr><td>1. Compartment</td><td class="num">15분</td><td>HUB · E-COMMERCE · MGMT</td></tr>
+    <tr><td>2. Hub VCN</td><td class="num">60분</td><td>subnet 4, gateway 2, route table 4</td></tr>
+    <tr><td>3. Spoke VCN</td><td class="num">40분</td><td>VCN 3, 각 SGW · subnet 1</td></tr>
+    <tr><td>4. DRG · 라우팅</td><td class="num">60분</td><td>attachment 4, DRG_SPOKE_RT, 경로 연결</td></tr>
+    <tr><td rowspan="5">2일차</td><td>5. NVA · VNIC</td><td class="num">60분</td><td>VNIC 4개가 올바른 eth 순서로 붙은 VyOS</td></tr>
+    <tr><td>6. VyOS 설정</td><td class="num">40분</td><td>주소 · 경로 · NAT · 방화벽</td></tr>
+    <tr><td>7. NVA 경로 켜기</td><td class="num">15분</td><td>spoke 트래픽이 NVA 로 감</td></tr>
+    <tr><td>8. 통신 검증</td><td class="num">60분</td><td>허용 · 차단 시험 결과</td></tr>
+    <tr><td>9. 정리</td><td class="num">30분</td><td>비용 나가는 리소스 0개</td></tr>
+  </table>
+
+  <h3>준비물</h3>
+  <ul class="check">
+    <li>OCI 콘솔 계정과 실습 compartment <code>lab-&lt;사번&gt;</code> 의 관리 권한 (강사가 만들어 준다)</li>
+    <li>콘솔 리전: <b>South Korea Central (Seoul)</b></li>
+    <li>VyOS 커스텀 이미지 위치 (강사가 알려 준다. 저장소 <code>config/nvas.yaml</code> 의 <code>image</code> 와 같다)</li>
+    <li>VyOS <code>vyos</code> 계정 비밀번호 (강사에게 구두로 받는다)</li>
+    <li>SSH 클라이언트 (macOS · Linux 터미널, Windows 는 PowerShell 의 <code>ssh</code>)</li>
+  </ul>
+
+  <h3>실습 설계값</h3>
+  <table>
+    <thead><tr><th>VCN</th><th>compartment</th><th>CIDR</th><th>실습에서 만드는 subnet</th></tr></thead>
+    <tr><td>HUB_VCN</td><td>HUB</td><td>10.0.0.0/16</td><td>UNTRUST 10.0.0.0/24 (public), TRUST 10.0.16.0/24, MGMT 10.0.32.0/24 (public), HA 10.0.48.0/28</td></tr>
+    <tr><td>EC_PRD_VCN</td><td>E-COMMERCE</td><td>10.1.0.0/16</td><td>WEB 10.1.16.0/24</td></tr>
+    <tr><td>EC_DEV_VCN</td><td>E-COMMERCE</td><td>10.2.0.0/16</td><td>WEB 10.2.16.0/24</td></tr>
+    <tr><td>MGMT_VCN</td><td>MGMT</td><td>10.3.0.0/16</td><td>MON 10.3.16.0/24</td></tr>
+  </table>
+  <p>이름은 <code>&lt;영역&gt;_&lt;용도&gt;_&lt;PUB|PRI&gt;_&lt;종류&gt;</code> 규칙을 따른다 (e.g., <code>HUB_FW_TRUST_PRI_SBN</code> = hub 의 방화벽 trust 용 private subnet). 이름만 보고 무엇인지 알 수 있어야 운영 중에 실수가 줄어든다.</p>
+
+  <div class="note warn"><b>실습은 자기 compartment <code>lab-&lt;사번&gt;</code> 안에서만 한다.</b> 상위 compartment (<code>landing-zone</code>) 와 그 위의 리소스는 바꾸거나 지우지 않는다. 실습이 끝나면 Lab 9 로 반드시 정리한다. NVA 는 4 OCPU 라 켜 두기만 해도 비용이 나간다.</div>
+</section>
+
+<!-- Lab 1 -->
+<section class="page join">
+  <h2>Lab 1. Compartment 만들기</h2>
+  <div class="meta"><span>15분</span><span>만드는 것: compartment 3개</span></div>
+  <p>compartment 는 리소스를 담는 폴더이자 권한 · 비용의 단위다. 실제 사업처럼 업무별로 나눠, 나중에 "이커머스 팀은 E-COMMERCE 만 관리" 같은 정책을 붙일 수 있게 한다.</p>
+  <ol class="steps">
+    <li>메뉴 <span class="ui">Identity &amp; Security → Compartments</span> 에서 <code>landing-zone</code> → <code>lab-&lt;사번&gt;</code> 으로 들어간다.</li>
+    <li><span class="ui">Create Compartment</span> 로 <code>HUB</code>, <code>E-COMMERCE</code>, <code>MGMT</code> 를 만든다. Parent 가 <code>lab-&lt;사번&gt;</code> 인지 꼭 확인한다.</li>
+    <li>새 compartment 는 다른 화면의 compartment 선택 목록에 나타나기까지 1~2분 걸릴 수 있다.</li>
+  </ol>
+  <h4>확인</h4>
+  <ul class="check">
+    <li><code>lab-&lt;사번&gt;</code> 아래에 compartment 3개가 Active 다.</li>
+  </ul>
+
+  <h2 style="margin-top:28px">Lab 2. Hub VCN 만들기</h2>
+  <div class="meta"><span>60분</span><span>compartment: HUB</span><span>만드는 것: VCN, IGW, SGW, route table 4, security list 1, subnet 4</span></div>
+  <p>hub 는 인터넷 출입구 (IGW) 와 방화벽 (NVA) 이 모이는 곳이다. hub 의 SGW 는 hub 안의 리소스용이다. 방화벽은 다리 네 개 (untrust · trust · mgmt · HA) 를 각각 다른 subnet 에 둔다.</p>
+
+  <h4>2-1. VCN</h4>
+  <ol class="steps">
+    <li><span class="ui">Networking → Virtual cloud networks</span>, compartment <code>HUB</code> 선택, <span class="ui">Create VCN</span>.</li>
+    <li>Name <code>HUB_VCN</code>, IPv4 CIDR <code>10.0.0.0/16</code>, DNS label <code>hub</code>.</li>
+  </ol>
+  <div class="note"><b>"Start VCN Wizard" 는 쓰지 않는다.</b> 마법사는 IGW · NAT gateway · SGW 와 subnet 을 자동으로 만들어 hub &amp; spoke 설계와 맞지 않는 리소스가 생긴다.</div>
+
+  <h4>2-2. Gateway</h4>
+  <ol class="steps">
+    <li>VCN 상세의 Internet Gateways 에서 <code>HUB_IGW</code> 를 만든다.</li>
+    <li>Service Gateways 에서 <code>HUB_SGW</code> 를 만든다. Services 는 <code>All ICN Services In Oracle Services Network</code> (ICN = 서울).</li>
+  </ol>
+
+  <h4>2-3. Route table</h4>
+  <table>
+    <thead><tr><th>이름</th><th>rule (지금 넣는 것)</th><th>쓰는 곳</th></tr></thead>
+    <tr><td><code>HUB_FW_UNTRUST_PUB_RT</code></td><td>0.0.0.0/0 → Internet Gateway <code>HUB_IGW</code></td><td>untrust subnet</td></tr>
+    <tr><td><code>HUB_FW_MGMT_PUB_RT</code></td><td>0.0.0.0/0 → Internet Gateway <code>HUB_IGW</code></td><td>mgmt subnet (NVA SSH)</td></tr>
+    <tr><td><code>HUB_FW_TRUST_PRI_RT</code></td><td>비워 둔다 (Lab 4)</td><td>trust subnet</td></tr>
+    <tr><td><code>HUB_INGRESS_RT</code></td><td>비워 둔다 (Lab 7)</td><td>DRG attachment (Lab 4)</td></tr>
+  </table>
+</section>
+
+<section class="page join">
+  <h4>2-4. Security list</h4>
+  <p><code>HUB_FW_TRUST_SL</code> 을 만들고 ingress rule 하나를 넣는다: Source CIDR <code>10.0.0.0/14</code>, IP Protocol <code>All Protocols</code>, 설명 "spoke 트래픽 통과 (실제 통제는 방화벽)". trust 다리로 들어오는 spoke 트래픽을 OCI 가 막지 않게 하는 규칙이다.</p>
+
+  <h4>2-5. Subnet</h4>
+  <table>
+    <thead><tr><th>이름</th><th>CIDR</th><th>종류</th><th>route table</th><th>security list</th></tr></thead>
+    <tr><td><code>HUB_FW_UNTRUST_PUB_SBN</code></td><td>10.0.0.0/24</td><td>Public</td><td><code>HUB_FW_UNTRUST_PUB_RT</code></td><td>Default</td></tr>
+    <tr><td><code>HUB_FW_TRUST_PRI_SBN</code></td><td>10.0.16.0/24</td><td>Private</td><td><code>HUB_FW_TRUST_PRI_RT</code></td><td>Default, <code>HUB_FW_TRUST_SL</code></td></tr>
+    <tr><td><code>HUB_FW_MGMT_PUB_SBN</code></td><td>10.0.32.0/24</td><td>Public</td><td><code>HUB_FW_MGMT_PUB_RT</code></td><td>Default</td></tr>
+    <tr><td><code>HUB_FW_HA_PRI_SBN</code></td><td>10.0.48.0/28</td><td>Private</td><td>Default</td><td>Default</td></tr>
+  </table>
+  <p>subnet 은 세 번째 옥텟을 16 단위로 띄웠다. 나중에 같은 시작 주소로 /20 까지 넓힐 수 있게 남겨 둔 자리다. N.B. Public / Private 은 만든 뒤 바꿀 수 없다 (subnet 을 다시 만들어야 한다).</p>
+  <h4>확인</h4>
+  <ul class="check">
+    <li>HUB_VCN 에 subnet 4, route table 4 (+ Default), IGW 1, SGW 1, security list 1 (+ Default) 이 있다.</li>
+    <li>trust subnet 에 security list 가 2개 붙어 있다.</li>
+  </ul>
+
+  <h2 style="margin-top:28px">Lab 3. Spoke VCN 만들기</h2>
+  <div class="meta"><span>40분</span><span>compartment: E-COMMERCE, MGMT</span><span>만드는 것: VCN 3, SGW 3, route table 3, subnet 3</span></div>
+  <p>spoke 는 업무 시스템이 사는 곳이다. <b>IGW · NAT gateway 는 만들지 않는다.</b> 인터넷과 다른 VCN 으로 가는 트래픽은 모두 DRG 를 거쳐 hub 로 간다. 이것이 hub &amp; spoke 의 핵심이다. 예외는 OCI 서비스용 SGW 하나다: OCI 서비스 트래픽은 방화벽이 검사하지 않으므로 hub 를 거칠 이유가 없고, spoke 마다 두면 OCI 가 요청이 어느 VCN 에서 왔는지 구분할 수 있다.</p>
+  <table>
+    <thead><tr><th>VCN</th><th>compartment</th><th>CIDR</th><th>DNS</th><th>route table</th><th>subnet (Private)</th></tr></thead>
+    <tr><td><code>EC_PRD_VCN</code></td><td>E-COMMERCE</td><td>10.1.0.0/16</td><td>ecprd</td><td><code>EC_PRD_RT</code></td><td><code>EC_PRD_WEB_PRI_SBN</code> 10.1.16.0/24</td></tr>
+    <tr><td><code>EC_DEV_VCN</code></td><td>E-COMMERCE</td><td>10.2.0.0/16</td><td>ecdev</td><td><code>EC_DEV_RT</code></td><td><code>EC_DEV_WEB_PRI_SBN</code> 10.2.16.0/24</td></tr>
+    <tr><td><code>MGMT_VCN</code></td><td>MGMT</td><td>10.3.0.0/16</td><td>mgmt</td><td><code>MGMT_RT</code></td><td><code>MGMT_MON_PRI_SBN</code> 10.3.16.0/24</td></tr>
+  </table>
+  <ol class="steps">
+    <li>VCN 을 만든다 (Lab 2-1 과 같은 방법).</li>
+    <li>Service Gateway 를 만든다. 이름은 VCN 이름의 <code>_VCN</code> 을 <code>_SGW</code> 로 바꾼 것 (e.g., <code>EC_PRD_SGW</code>), Services 는 All ICN Services.</li>
+    <li>route table 을 만들고 rule 하나를 넣는다: Destination type <b>Service</b>, All ICN Services → 이 VCN 의 SGW. 0.0.0.0/0 → DRG 는 DRG 가 생긴 뒤 Lab 4 에서 넣는다.</li>
+    <li>subnet 을 Private 으로 만들고 위 route table 과 Default security list 를 붙인다.</li>
+  </ol>
+  <h4>확인</h4>
+  <ul class="check">
+    <li>세 VCN 모두 Internet / NAT Gateway 는 0개, Service Gateway 는 1개다.</li>
+  </ul>
+</section>
+
+<!-- Lab 4 -->
+<section class="page join">
+  <h2>Lab 4. DRG 와 라우팅</h2>
+  <div class="meta"><span>60분</span><span>compartment: HUB</span><span>만드는 것: DRG, attachment 4, DRG route table 1, route rule</span></div>
+  <p>DRG 는 VCN 들을 잇는 가상 라우터다. 여기서 정할 것은 두 가지다: spoke 에서 온 트래픽은 무조건 hub 로 보내고 (DRG_SPOKE_RT), hub 에서 나가는 트래픽은 목적지 spoke 로 보낸다 (자동 생성 테이블).</p>
+
+  <h4>4-1. DRG 와 attachment</h4>
+  <ol class="steps">
+    <li><span class="ui">Networking → Customer connectivity → Dynamic routing gateways</span>, compartment <code>HUB</code>, <span class="ui">Create DRG</span>: <code>HUB_DRG</code>. Available 까지 몇 분 걸린다.</li>
+    <li>DRG 상세 → VCN attachments → <span class="ui">Create virtual cloud network attachment</span>:
+      <ul>
+        <li><code>HUB_DRG_ATT</code>: VCN <code>HUB_VCN</code>. Advanced options 의 <b>VCN route table</b> 에서 <code>HUB_INGRESS_RT</code> 를 고른다.</li>
+        <li><code>EC_PRD_DRG_ATT</code>, <code>EC_DEV_DRG_ATT</code>, <code>MGMT_DRG_ATT</code>: 각 VCN (compartment 를 바꿔 고른다).</li>
+      </ul>
+    </li>
+  </ol>
+
+  <h4>4-2. DRG route table</h4>
+  <ol class="steps">
+    <li>DRG 상세 → DRG route tables → <span class="ui">Create DRG route table</span>: <code>DRG_SPOKE_RT</code>, static rule 0.0.0.0/0 → Next hop attachment type <code>Virtual Cloud Network</code>, attachment <code>HUB_DRG_ATT</code>.</li>
+    <li>spoke attachment 3개를 각각 Edit 해서 DRG route table 을 <code>DRG_SPOKE_RT</code> 로 바꾼다.</li>
+    <li><code>HUB_DRG_ATT</code> 는 <code>Autogenerated Drg Route Table for VCN attachments</code> 를 그대로 둔다. 이 테이블은 모든 VCN attachment 의 CIDR 을 자동으로 배워서, hub 에서 나가는 트래픽을 맞는 spoke 로 보낸다.</li>
+  </ol>
+  <div class="note"><b>spoke attachment 를 자동 생성 테이블에 그대로 두면</b> spoke 끼리 DRG 에서 바로 통신해 방화벽을 건너뛴다. DRG_SPOKE_RT 로 바꾸는 이 단계가 "모든 spoke 트래픽은 hub 를 거친다" (RFP SFR-004) 를 만든다.</div>
+
+  <h4>4-3. VCN route rule 채우기</h4>
+  <table>
+    <thead><tr><th>route table</th><th>rule</th><th>의미</th></tr></thead>
+    <tr><td><code>EC_PRD_RT</code>, <code>EC_DEV_RT</code>, <code>MGMT_RT</code></td><td>0.0.0.0/0 → Dynamic Routing Gateway</td><td>인터넷 · 다른 VCN 은 DRG 로 (OCI 서비스는 Lab 3 의 SGW rule 이 더 구체적이라 먼저 맞는다)</td></tr>
+    <tr><td><code>HUB_FW_TRUST_PRI_RT</code></td><td>10.1.0.0/16, 10.2.0.0/16, 10.3.0.0/16 → DRG<br>All ICN Services → <code>HUB_SGW</code></td><td>방화벽이 검사를 마친 트래픽을 spoke · OCI 서비스로</td></tr>
+  </table>
+  <p>N.B. DRG attachment 에 붙는 route table (<code>HUB_INGRESS_RT</code>) 은 target 으로 SGW · Private IP 만 쓸 수 있다.</p>
+
+  <h4>확인</h4>
+  <ul class="check">
+    <li>attachment 4개가 Attached, spoke 3개의 DRG route table 이 <code>DRG_SPOKE_RT</code> 다.</li>
+    <li>이 시점에서 spoke 는 아직 인터넷에 못 나간다. <code>HUB_INGRESS_RT</code> 에 방화벽으로 넘기는 rule 이 없어서 hub 에 들어온 트래픽이 버려지기 때문이다 (Lab 7 에서 연다).</li>
+  </ul>
+</section>
+
+<!-- Lab 5 -->
+<section class="page join">
+  <h2>Lab 5. NVA (VyOS) 인스턴스와 VNIC</h2>
+  <div class="meta"><span>60분</span><span>compartment: HUB</span><span>만드는 것: reserved public IP, 인스턴스, secondary VNIC 3, secondary IP 1</span></div>
+  <p>실제 사업의 상용 방화벽 대신 VyOS 라우터 VM 을 쓴다. 이 Lab 은 순서가 중요하다. 순서를 어기면 OS 안의 eth 번호가 섞여서 처음부터 다시 만들어야 한다.</p>
+
+  <h4>5-1. Reserved public IP</h4>
+  <p><span class="ui">Networking → IP management → Reserved public IPs</span> 에서 <code>NVA_UNTRUST_PIP</code> 를 만든다 (compartment HUB). spoke 가 인터넷으로 나갈 때 쓰는 고정 주소다. 인스턴스를 다시 만들어도 바뀌지 않아서, PG 같은 외부 기관에 등록하는 IP 로 쓸 수 있다.</p>
+
+  <h4>5-2. 인스턴스 만들기</h4>
+  <table class="kv">
+    <tr><th>Name</th><td><code>NVA</code></td></tr>
+    <tr><th>Placement</th><td>AD-1</td></tr>
+    <tr><th>Image</th><td>Change image → My images → Custom images → 강사가 알려 준 VyOS 이미지</td></tr>
+    <tr><th>Shape</th><td><code>VM.Standard.E5.Flex</code>, 4 OCPU, 16 GB. Flex shape 는 OCPU 수만큼 VNIC 을 붙일 수 있어서 VNIC 4개에 4 OCPU 가 필요하다.</td></tr>
+    <tr><th>Primary VNIC</th><td><code>HUB_VCN</code> / <code>HUB_FW_MGMT_PUB_SBN</code>, Automatically assign public IPv4 address 체크</td></tr>
+    <tr><th>SSH keys</th><td>No SSH keys (이 이미지는 비밀번호 인증을 쓴다)</td></tr>
+  </table>
+
+  <h4>5-3. 부팅이 끝날 때까지 기다리기</h4>
+  <p>Running 이 된 뒤 3분쯤 기다렸다가 SSH 로 접속해 본다. 접속되면 부팅이 끝난 것이다. <b>그 전에는 VNIC 을 붙이지 않는다.</b></p>
+<pre><code>ssh -o PubkeyAuthentication=no vyos@&lt;NVA 의 public IP&gt;
+<span class="c"># 비밀번호는 강사에게 받은 것. 키 인증을 먼저 시도하다 끊기는 것을 막으려고 옵션을 준다</span></code></pre>
+
+  <h4>5-4. Secondary VNIC 을 하나씩 붙이기</h4>
+  <p>인스턴스 상세 → Attached VNICs → <span class="ui">Create VNIC</span>. 하나를 만들고 상태가 <b>Attached</b> 가 된 것을 본 뒤에 다음 것을 만든다.</p>
+  <table>
+    <thead><tr><th>순서</th><th>VNIC 이름</th><th>subnet</th><th>private IP</th><th>skip source/dest check</th><th>public IP</th></tr></thead>
+    <tr><td class="num">1</td><td><code>NVA-untrust</code></td><td><code>HUB_FW_UNTRUST_PUB_SBN</code></td><td>10.0.0.11</td><td>체크</td><td>지금은 없음 (5-6)</td></tr>
+    <tr><td class="num">2</td><td><code>NVA-trust</code></td><td><code>HUB_FW_TRUST_PRI_SBN</code></td><td>10.0.16.11</td><td>체크</td><td>없음</td></tr>
+    <tr><td class="num">3</td><td><code>NVA-ha</code></td><td><code>HUB_FW_HA_PRI_SBN</code></td><td>10.0.48.4</td><td>체크 안 함</td><td>없음</td></tr>
+  </table>
+  <div class="note warn"><b>왜 부팅 후에, 하나씩인가:</b> OS 는 장치가 감지된 순서대로 eth 번호를 준다. 부팅 중에 VNIC 여러 개를 한꺼번에 붙이면 감지 순서가 섞이고, 실제로 eth0 이 HA 다리가 되어 SSH 가 안 되는 일이 있었다. 저장소의 <code>stacks/30-nva</code> 도 같은 이유로 부팅 180초 뒤에 VNIC 을 하나씩 붙인다.</div>
+</section>
+
+<section class="page join">
+  <h4>5-5. trust VNIC 에 secondary IP</h4>
+  <p><code>NVA-trust</code> 상세 → IPv4 Addresses → <span class="ui">Assign secondary private IP address</span>: <code>10.0.16.160</code>. 이 주소가 spoke 트래픽을 받는 route target (VIP) 이다. 10.0.16.11 과 따로 두는 이유는, 방화벽을 이중화하면 장애 때 이 주소만 대기 장비로 옮겨 route table 을 고치지 않고 절체하기 위해서다.</p>
+
+  <h4>5-6. untrust VNIC 에 reserved public IP</h4>
+  <p><code>NVA-untrust</code> 상세 → IPv4 Addresses → 10.0.0.11 행의 메뉴 → Edit → Public IP type <b>Reserved public IP</b> → <code>NVA_UNTRUST_PIP</code>.</p>
+
+  <h4>5-7. VyOS 에서 확인</h4>
+<pre><code>vyos@vyos:~$ show interfaces
+<span class="c"># eth0 만 주소 (10.0.32.x, DHCP) 가 있고 eth1~3 은 비어 있는 게 정상이다.</span>
+<span class="c"># OCI 는 secondary VNIC 의 주소를 OS 에 넣어 주지 않는다. Lab 6 에서 직접 넣는다.</span>
+vyos@vyos:~$ show interfaces ethernet eth1 | grep link/ether
+<span class="c"># 콘솔의 NVA-untrust VNIC MAC 과 같아야 한다. eth2 = trust, eth3 = ha 도 같은 방법으로 본다.</span></code></pre>
+  <h4>확인</h4>
+  <ul class="check">
+    <li>eth1 · eth2 · eth3 의 MAC 이 각각 untrust · trust · ha VNIC 의 MAC 과 같다. 다르면 부록 A 첫 줄을 본다.</li>
+    <li>콘솔에서 untrust · trust VNIC 의 Skip source/destination check 가 Yes 다.</li>
+    <li>네 VNIC 의 MAC 을 메모했다 (Lab 6 에서 쓴다).</li>
+  </ul>
+  <div class="note"><b>skip source/destination check 를 켜는 이유:</b> OCI 는 기본으로 VNIC 자기 주소가 출발지나 목적지가 아닌 패킷을 버린다. 남의 트래픽을 넘겨주는 라우터의 다리 (untrust, trust) 는 이 검사를 꺼야 한다. HA 다리는 장비끼리만 통신하므로 켜 둔다.</div>
+
+  <!-- Lab 6 -->
+  <h2 style="margin-top:28px">Lab 6. VyOS 설정</h2>
+  <div class="meta"><span>40분</span><span>도구: SSH</span><span>넣는 것: 인터페이스, 경로, NAT, 방화벽</span></div>
+  <p>SSH 로 접속해 <code>configure</code> 로 설정 모드에 들어간 뒤 아래 블록을 붙여 넣는다. <code>&lt;… MAC&gt;</code> 은 Lab 5-7 에서 메모한 값으로 바꾼다. 저장소에서는 <code>make configure-nva</code> 가 같은 내용을 만들어 넣는다.</p>
+</section>
+
+<section class="page join">
+<pre><code>configure
+<span class="c"># 1) 인터페이스: hw-id(MAC)로 이름을 고정해 재부팅해도 eth 번호가 바뀌지 않게 한다</span>
+set interfaces ethernet eth0 hw-id '&lt;mgmt MAC&gt;'
+set interfaces ethernet eth0 description 'mgmt'
+set interfaces ethernet eth1 hw-id '&lt;untrust MAC&gt;'
+set interfaces ethernet eth1 description 'untrust'
+set interfaces ethernet eth1 address '10.0.0.11/24'
+set interfaces ethernet eth2 hw-id '&lt;trust MAC&gt;'
+set interfaces ethernet eth2 description 'trust'
+set interfaces ethernet eth2 address '10.0.16.11/24'
+set interfaces ethernet eth2 address '10.0.16.160/24'
+set interfaces ethernet eth2 mtu '9000'
+set interfaces ethernet eth3 hw-id '&lt;ha MAC&gt;'
+set interfaces ethernet eth3 description 'ha'
+set interfaces ethernet eth3 address '10.0.48.4/28'
+set interfaces ethernet eth3 mtu '9000'
+
+<span class="c"># 2) 경로: 인터넷은 untrust 게이트웨이(.1), spoke 는 trust 게이트웨이(.1)로</span>
+set protocols static route 0.0.0.0/0 next-hop 10.0.0.1
+set protocols static route 10.1.0.0/16 next-hop 10.0.16.1
+set protocols static route 10.2.0.0/16 next-hop 10.0.16.1
+set protocols static route 10.3.0.0/16 next-hop 10.0.16.1
+set system name-server '1.1.1.1'</code></pre>
+<pre><code><span class="c"># 3) NAT: spoke 가 인터넷으로 나갈 때 untrust 주소로 바꾼다</span>
+set firewall group network-group NAT-INSIDE network '10.1.0.0/16'
+set firewall group network-group NAT-INSIDE network '10.2.0.0/16'
+set firewall group network-group NAT-INSIDE network '10.3.0.0/16'
+set nat source rule 100 description 'inside-to-internet'
+set nat source rule 100 outbound-interface name 'eth1'
+set nat source rule 100 source group network-group 'NAT-INSIDE'
+set nat source rule 100 translation address 'masquerade'
+
+<span class="c"># 4) 방화벽: 응답 허용, 운영 ↔ 개발 차단. mgmt(10.3)는 어느 그룹에도 넣지 않아 전체 허용</span>
+set firewall global-options state-policy established action 'accept'
+set firewall global-options state-policy related action 'accept'
+set firewall global-options state-policy invalid action 'drop'
+set firewall group network-group VCN-PRD network '10.1.0.0/16'
+set firewall group network-group VCN-NONPRD network '10.2.0.0/16'
+set firewall ipv4 name ALLOW-ALL default-action 'accept'
+set firewall ipv4 name TRUST-INTRA default-action 'accept'
+set firewall ipv4 name TRUST-INTRA rule 100 action 'drop'
+set firewall ipv4 name TRUST-INTRA rule 100 source group network-group 'VCN-NONPRD'
+set firewall ipv4 name TRUST-INTRA rule 100 destination group network-group 'VCN-PRD'
+set firewall ipv4 name TRUST-INTRA rule 110 action 'drop'
+set firewall ipv4 name TRUST-INTRA rule 110 source group network-group 'VCN-PRD'
+set firewall ipv4 name TRUST-INTRA rule 110 destination group network-group 'VCN-NONPRD'
+
+<span class="c"># 5) zone: 다리마다 zone 을 정하고 zone 사이 정책을 붙인다</span>
+set firewall zone MGMT member interface 'eth0'
+set firewall zone MGMT default-action 'drop'
+set firewall zone UNTRUST member interface 'eth1'
+set firewall zone UNTRUST default-action 'drop'
+set firewall zone UNTRUST from TRUST firewall name 'ALLOW-ALL'
+set firewall zone TRUST member interface 'eth2'
+set firewall zone TRUST default-action 'drop'
+set firewall zone TRUST intra-zone-filtering firewall name 'TRUST-INTRA'
+set firewall zone HA member interface 'eth3'
+set firewall zone HA default-action 'drop'
+
+commit
+save
+exit</code></pre>
+</section>
+
+<section class="page join">
+  <table>
+    <thead><tr><th>블록</th><th>핵심</th></tr></thead>
+    <tr><td class="name">1) 인터페이스</td><td>eth2 에 10.0.16.160 을 직접 넣어야 VyOS 가 VIP 로 온 패킷을 받는다. trust · ha 는 MTU 9000 (VCN 안 jumbo frame).</td></tr>
+    <tr><td class="name">2) 경로</td><td>OCI subnet 의 첫 주소 (.1) 가 VCN 라우터다. spoke 로 가는 패킷을 trust 쪽 VCN 라우터에 주면 <code>HUB_FW_TRUST_PRI_RT</code> 가 DRG 로 보낸다.</td></tr>
+    <tr><td class="name">3) NAT</td><td>spoke 의 사설 주소를 untrust 주소 (10.0.0.11) 로 바꾸고, OCI 가 다시 reserved public IP 로 바꿔 내보낸다.</td></tr>
+    <tr><td class="name">4) 방화벽</td><td>spoke 끼리의 트래픽은 eth2 로 들어와 eth2 로 나가므로 TRUST zone 안의 트래픽 (intra-zone) 이다. 여기에 TRUST-INTRA 를 건다.</td></tr>
+    <tr><td class="name">5) zone</td><td>TRUST → UNTRUST (인터넷) 만 허용하고, 응답은 state-policy 가 허용한다. 인터넷에서 먼저 들어오는 연결은 막힌다.</td></tr>
+  </table>
+  <p>실제 구성은 WAF · DNS subnet 과 본사 대역 (192.168.10.0/24) 도 trust 로 보낸다. 실습에는 그 subnet 이 없어서 뺐다.</p>
+  <h4>확인</h4>
+<pre><code>show interfaces                       <span class="c"># eth1~3 에 주소가 보인다</span>
+show ip route                         <span class="c"># S 로 표시된 static 경로 4개</span>
+show configuration commands | grep nat</code></pre>
+  <div class="note"><code>commit</code> 때 <code>WARNING: Interface eth0 assigned to zone MGMT is in VRF MGMT</code> 가 나올 수 있다. 이미지가 eth0 을 관리용 VRF 에 넣어 두어서 생기는 알려진 경고이며, 실습 동작에는 영향이 없다.</div>
+
+  <!-- Lab 7 -->
+  <h2 style="margin-top:28px">Lab 7. NVA 경로 켜기</h2>
+  <div class="meta"><span>15분</span><span>바꾸는 것: HUB_INGRESS_RT</span></div>
+  <p><code>HUB_INGRESS_RT</code> 에 아래 rule 을 추가한다. Target type 은 <b>Private IP</b>, 주소는 <code>10.0.16.160</code> 이다.</p>
+  <table>
+    <thead><tr><th>Destination</th><th>Target</th><th>의미</th></tr></thead>
+    <tr><td>0.0.0.0/0</td><td>Private IP 10.0.16.160</td><td>spoke → 인터넷</td></tr>
+    <tr><td>10.1.0.0/16, 10.2.0.0/16, 10.3.0.0/16 (rule 3개)</td><td>Private IP 10.0.16.160</td><td>spoke ↔ spoke</td></tr>
+  </table>
+  <p>0.0.0.0/0 하나로도 spoke 간 트래픽이 NVA 로 가지만, 실제 구성은 인터넷 출구와 spoke 간 경로를 따로 끄고 켤 수 있도록 spoke 대역을 따로 적는다. OCI 서비스 트래픽은 spoke 의 SGW 로 바로 나가므로 이 테이블까지 오지 않는다.</p>
+  <div class="note"><b>왜 Lab 4 에서 못 넣었나:</b> Private IP target 은 그 주소가 실제로 있어야 rule 을 만들 수 있다. 10.0.16.160 은 Lab 5 에서야 생겼다. 저장소에서는 이 rule 들을 <code>enabled: auto</code> 로 적어 두어, NVA 가 생긴 뒤 <code>make apply-hub</code> 를 하면 자동으로 켜진다.</div>
+</section>
+
+<!-- Lab 8 -->
+<section class="page join">
+  <h2>Lab 8. 통신 검증</h2>
+  <div class="meta"><span>60분</span><span>만드는 것: 시험 VM 2, Cloud Shell 사설 네트워크</span></div>
+  <p>시험은 "되는 것" 과 "막혀야 하는 것" 을 둘 다 확인한다 (RFP TER-001). 막혀야 하는 것이 뚫려 있으면, 되는 것이 안 되는 것보다 더 큰 문제다.</p>
+
+  <h4>8-1. 시험 준비</h4>
+  <ol class="steps">
+    <li><b>ICMP 열기:</b> <code>EC_PRD_VCN</code>, <code>EC_DEV_VCN</code> 의 Default security list 에 ingress rule 을 추가한다: Source <code>10.0.0.0/8</code>, ICMP, Type 8. 차단 시험에서 막는 주체가 security list 가 아니라 방화벽임을 분명히 하려는 것이다.</li>
+    <li><b>Cloud Shell 을 mgmt 에 붙이기:</b> 콘솔 상단의 Cloud Shell 을 열고 Network 를 <span class="ui">Ephemeral private network</span> 로 바꾼다. VCN <code>MGMT_VCN</code>, subnet <code>MGMT_MON_PRI_SBN</code>. 이제 Cloud Shell 이 mgmt 에 있는 관리 서버 역할을 한다. 정책 때문에 메뉴가 안 보이면 강사에게 알린다 (대안: Bastion 서비스의 port forwarding 세션).</li>
+    <li><b>키 만들기:</b> Cloud Shell 에서 <code>ssh-keygen -t ed25519</code> 후 <code>cat ~/.ssh/id_ed25519.pub</code> 의 내용을 복사한다.</li>
+    <li><b>시험 VM 2대:</b> <code>lab-ec-prd</code> (subnet <code>EC_PRD_WEB_PRI_SBN</code>), <code>lab-ec-dev</code> (subnet <code>EC_DEV_WEB_PRI_SBN</code>). Oracle Linux 9, <code>VM.Standard.E5.Flex</code> 1 OCPU · 8 GB, SSH key 는 위에서 복사한 공개키. 각 VM 의 private IP 를 메모한다.</li>
+  </ol>
+
+  <h4>8-2. 시험</h4>
+  <table>
+    <thead><tr><th>#</th><th>어디서</th><th>명령</th><th>기대 결과</th><th>결정하는 곳</th></tr></thead>
+    <tr><td class="num">1</td><td>Cloud Shell (mgmt)</td><td><code>ssh opc@&lt;ec-prd IP&gt;</code></td><td>접속된다</td><td>TRUST-INTRA default accept (mgmt 는 그룹 밖)</td></tr>
+    <tr><td class="num">2</td><td>Cloud Shell (mgmt)</td><td><code>ssh opc@&lt;ec-dev IP&gt;</code></td><td>접속된다</td><td>같음</td></tr>
+    <tr><td class="num">3</td><td>ec-prd</td><td><code>tracepath -n 1.1.1.1</code></td><td>10.0.16.11 이 보인다 (보통 2번째 홉, 1번째는 no reply)</td><td>HUB_INGRESS_RT → NVA</td></tr>
+    <tr><td class="num">4</td><td>ec-prd</td><td><code>curl -s ifconfig.me</code></td><td><code>NVA_UNTRUST_PIP</code> 주소</td><td>VyOS NAT + reserved public IP</td></tr>
+    <tr><td class="num">5</td><td>ec-prd</td><td><code>tracepath -n -m 3 objectstorage.ap-seoul-1.oraclecloud.com</code></td><td>10.0.16.11 이 나오지 않는다</td><td><code>EC_PRD_RT</code> 의 All ICN Services → <code>EC_PRD_SGW</code></td></tr>
+    <tr><td class="num">6</td><td>ec-dev</td><td><code>ping -c 3 &lt;ec-prd IP&gt;</code></td><td>100% packet loss</td><td>TRUST-INTRA rule 100</td></tr>
+    <tr><td class="num">7</td><td>ec-prd</td><td><code>ping -c 3 &lt;ec-dev IP&gt;</code></td><td>100% packet loss</td><td>TRUST-INTRA rule 110</td></tr>
+    <tr><td class="num">8</td><td>VyOS</td><td><code>show firewall</code></td><td>TRUST-INTRA rule 100 · 110 의 패킷 수가 늘었다</td><td>차단 주체 확인</td></tr>
+  </table>
+  <p>1번째 홉이 no reply 인 것은 정상이다: OCI 의 가상 라우팅 구간은 TTL 은 줄이지만 응답을 보내지 않는다. 10.0.16.160 이 아니라 10.0.16.11 이 보이는 이유는, VyOS 가 응답 (ICMP time exceeded) 을 보낼 때 그 인터페이스의 첫 번째 주소를 출발지로 쓰기 때문이다. 둘 다 같은 NVA 의 trust 다리다. 다음 홉에 <code>pmtu 1500</code> 이 붙는 것은 trust (9000) 와 바깥 (1500) 의 MTU 차이를 NVA 가 알려 주는 것이다 (PMTUD).</p>
+
+  <h4>8-3. 기록</h4>
+  <p>각 시험의 명령과 결과 화면을 캡처해 # 순서대로 정리한다. 실제 사업의 시험 결과서가 이 모양이다 (「02. R&amp;R」 8장의 "시험" 단계).</p>
+</section>
+
+<!-- Lab 9 -->
+<section class="page join">
+  <h2>Lab 9. 정리 (삭제)</h2>
+  <div class="meta"><span>30분</span><span>만든 순서의 거꾸로</span></div>
+  <p>리소스는 다른 리소스가 쓰고 있으면 지워지지 않는다. 만든 순서의 거꾸로 지운다.</p>
+  <ol class="steps">
+    <li>시험 VM 2대를 Terminate 한다 (Permanently delete the attached boot volume 체크).</li>
+    <li>Cloud Shell 의 Network 를 Public network 로 되돌린다.</li>
+    <li><code>HUB_INGRESS_RT</code> 에서 Lab 7 의 Private IP rule 4개를 지운다. 경로의 target 이 사라지기 전에 경로부터 지운다.</li>
+    <li>NVA 를 Terminate 한다 (boot volume 삭제 체크). secondary VNIC 과 10.0.16.160 은 같이 지워진다.</li>
+    <li><code>NVA_UNTRUST_PIP</code> 를 Reserved public IPs 에서 지운다. reserved IP 는 인스턴스와 따로 남아 있다.</li>
+    <li>DRG 의 VCN attachment 4개 → <code>DRG_SPOKE_RT</code> → <code>HUB_DRG</code> 순서로 지운다.</li>
+    <li>VCN 4개를 지운다. 콘솔의 VCN 삭제는 안에 있는 subnet · route table · security list · gateway 를 목록으로 보여 주고 같이 지운다. 목록을 확인하고 진행한다.</li>
+    <li><code>lab-&lt;사번&gt;</code> 아래의 compartment 3개를 지운다 (비어 있어야 하고, 몇 분 걸린다).</li>
+  </ol>
+  <div class="note warn"><b>지우기 전에 compartment 경로를 다시 본다.</b> 화면 왼쪽 위의 compartment 가 <code>lab-&lt;사번&gt;</code> 아래인지 확인한다. <code>landing-zone</code> 과 그 위의 리소스는 어떤 경우에도 지우지 않는다. <code>lab-&lt;사번&gt;</code> 자체는 강사가 지운다.</div>
+  <h4>확인</h4>
+  <ul class="check">
+    <li>Compute · Networking 에 내 이름으로 남은 리소스가 없다 (<span class="ui">Governance → Tenancy explorer</span> 에서 compartment 를 골라 확인할 수 있다).</li>
+  </ul>
+
+  <!-- 과제 -->
+  <h2 style="margin-top:28px">과제</h2>
+  <h4>과제 1. ERP 추가</h4>
+  <p><code>ERP</code> compartment 와 <code>ERP_PRD_VCN</code> (10.4.0.0/16), <code>ERP_DEV_VCN</code> (10.5.0.0/16) 을 추가한다 (Lab 9 전에 하거나, 처음부터 다시 만든다).</p>
+  <ul>
+    <li><b>완료 기준:</b> erp-prd ↔ ec-prd 는 통신된다 (운영끼리 연동), erp-dev → erp-prd 는 막힌다, ERP VM 의 <code>curl ifconfig.me</code> 가 NVA 공인 IP 다.</li>
+    <li><b>힌트:</b> 바꿀 곳은 콘솔에 4군데 (VCN · SGW · subnet · RT, DRG attachment 와 DRG route table, trust RT, <code>HUB_INGRESS_RT</code>), VyOS 에 3군데 (경로, NAT-INSIDE, VCN-PRD · VCN-NONPRD) 다. 다 했는데 ERP 만 안 되면, ERP 패킷이 trust 다리에 들어갈 때 누가 막는지 생각한다.</li>
+  </ul>
+  <h4>과제 2. IaC 로 다시 만들기</h4>
+  <p>강사 환경에서 같은 구성을 저장소로 만들어 본다 (부록 B). 콘솔에서 몇 번 클릭했는지와 YAML 몇 줄로 끝났는지 비교하고, Lab 단계마다 대응하는 YAML 위치를 표로 정리한다.</p>
+  <h4>과제 3 (선택). VNIC 순서 실험</h4>
+  <p>NVA 를 새로 만들고, Running 직후 VNIC 3개를 연달아 붙인 뒤 <code>show interfaces</code> 의 MAC 을 콘솔과 비교한다. 결과를 보고 Lab 6 의 <code>hw-id</code> 가 왜 필요한지 설명한다.</p>
+</section>
+
+<!-- 부록 A -->
+<section class="page">
+  <h2>부록 A. 트러블슈팅</h2>
+  <table>
+    <thead><tr><th>증상</th><th>원인</th><th>확인 · 조치</th></tr></thead>
+    <tr><td>VyOS 의 eth 번호와 VNIC 이 맞지 않는다 (e.g., eth0 이 ha)</td><td>부팅 중에 VNIC 을 붙였거나 여러 개를 한꺼번에 붙였다</td><td>NVA 를 지우고 다시 만든다. 부팅 후 하나씩 (Lab 5-3, 5-4).</td></tr>
+    <tr><td>SSH 가 비밀번호를 묻기 전에 끊긴다</td><td>클라이언트가 키 인증을 여러 번 시도해 서버가 끊었다</td><td><code>-o PubkeyAuthentication=no</code> 를 붙인다.</td></tr>
+    <tr><td>Private IP 10.0.16.160 rule 이 안 만들어진다</td><td>그 주소가 아직 없다</td><td>Lab 5-5 를 먼저 한다.</td></tr>
+    <tr><td>spoke 에서 인터넷이 안 되고, tracepath 에 10.0.16.11 도 안 보인다</td><td>spoke RT, DRG_SPOKE_RT 할당, hub attachment 의 VCN route table, Lab 7 rule 중 하나가 빠졌다. 또는 trust VNIC 의 skip source/dest check 가 꺼져 있다</td><td>경로를 spoke 에서 hub 쪽으로 한 칸씩 따라가며 본다 (부록 C 1번).</td></tr>
+    <tr><td>10.0.16.11 은 보이는데 그 뒤가 끊긴다</td><td>VyOS 의 기본 경로 · NAT, untrust VNIC 의 skip source/dest check, untrust RT 의 IGW rule 중 하나</td><td>VyOS 에서 <code>show ip route</code>, <code>show configuration commands | grep nat</code>, 콘솔에서 untrust VNIC · RT 를 본다.</td></tr>
+    <tr><td>ec-dev → ec-prd ping 이 된다 (막혀야 한다)</td><td>VyOS 그룹이 빠졌거나 commit 하지 않았다</td><td><code>show configuration commands | grep VCN-</code>. DRG 에서 spoke attachment 가 자동 생성 테이블에 남아 있으면 방화벽을 아예 안 거친다 (Lab 4-2).</td></tr>
+    <tr><td>막히는데 security list 탓인지 방화벽 탓인지 모르겠다</td><td></td><td>mgmt → 같은 대상은 되는지 본다. 되면 security list 는 아니다. VyOS <code>show firewall</code> 의 rule 카운터도 본다.</td></tr>
+    <tr><td>작은 요청은 되는데 큰 파일 전송만 멈춘다</td><td>MTU 차이 (trust 9000, VCN 밖 1500) 에서 PMTUD 용 ICMP 가 막혔다</td><td>security list 에 ICMP type 3 code 4 가 있는지 본다 (Default security list 에는 있다).</td></tr>
+    <tr><td><code>commit</code> 때 eth0 · VRF MGMT 경고</td><td>이미지가 eth0 을 관리 VRF 에 넣어 두었다</td><td>알려진 경고, 동작에 영향 없음.</td></tr>
+  </table>
+
+  <h2 style="margin-top:28px">부록 B. IaC 대응표</h2>
+  <p>저장소는 실습의 모든 단계를 <code>config/</code> 의 YAML 과 <code>make</code> 명령으로 한다. 자세한 사용법은 저장소 README 를 본다.</p>
+  <table>
+    <thead><tr><th>실습</th><th>저장소 파일</th><th>명령</th></tr></thead>
+    <tr><td>Lab 1 compartment</td><td><code>config/compartments.yaml</code></td><td><code>make apply-iam</code></td></tr>
+    <tr><td>Lab 2 hub VCN · gateway · SL</td><td><code>config/vcns/hub.yaml</code></td><td><code>make apply-hub</code></td></tr>
+    <tr><td>Lab 3 spoke VCN</td><td><code>config/vcns/ec-prd.yaml</code> 등 (파일 = spoke)</td><td><code>make apply-ec-prd</code> 등</td></tr>
+    <tr><td>Lab 4 DRG · route table</td><td><code>config/drg.yaml</code>, VCN 파일의 <code>drg_attachment</code>, <code>spokes</code> 별칭</td><td>위 apply 에 포함</td></tr>
+    <tr><td>Lab 5 NVA · VNIC 순서 · IP</td><td><code>config/nvas.yaml</code></td><td><code>make apply-nva</code> (부팅 180초 뒤 하나씩 자동)</td></tr>
+    <tr><td>Lab 6 VyOS 설정</td><td><code>stacks/30-nva/vyos.sh.tftpl</code></td><td><code>make configure-nva</code></td></tr>
+    <tr><td>Lab 7 NVA 경로 켜기</td><td><code>hub.yaml</code> 의 <code>enabled: auto</code></td><td><code>make apply-hub</code></td></tr>
+    <tr><td>Lab 9 정리</td><td></td><td><code>make destroy-all</code></td></tr>
+  </table>
+  <div class="note warn">저장소의 <code>compartments.yaml</code> 에는 실제 상위 compartment 가 적혀 있다. 과제 2 는 강사가 준비한 환경과 설정으로만 하고, 실제 환경에 <code>apply</code> · <code>destroy</code> 하지 않는다.</div>
+</section>
+
+<!-- 부록 C -->
+<section class="page join">
+  <h2>부록 C. 확인 문제</h2>
+  <ol>
+    <li>spoke 에는 IGW 가 없는데 ec-prd VM 은 어떻게 인터넷에 나가는가? 거치는 route table 을 순서대로 적어라.</li>
+    <li>그 응답 패킷은 어떻게 ec-prd 로 돌아오는가?</li>
+    <li>trust VNIC 의 skip source/destination check 를 켜지 않으면 무슨 일이 생기는가?</li>
+    <li><code>HUB_INGRESS_RT</code> 의 10.0.16.160 rule 을 Lab 4 에서 만들 수 없던 이유는?</li>
+    <li>spoke attachment 를 DRG_SPOKE_RT 로 바꾸지 않으면 어떻게 되는가?</li>
+    <li>mgmt 가 모든 VCN 과 통신할 수 있는 것은 어떤 설정 때문인가?</li>
+    <li>Object Storage 로 가는 트래픽은 NVA 를 거치는가? SGW 를 hub 하나가 아니라 spoke 마다 둔 이유는?</li>
+    <li>10.0.16.11 이 있는데 10.0.16.160 을 따로 두는 이유는?</li>
+    <li>과제 1 에서 ERP 만 통신이 안 된다면 어디를 의심하는가?</li>
+  </ol>
+
+  <h3>해설</h3>
+  <ol class="ans">
+    <li><code>EC_PRD_RT</code> (0/0 → DRG) → <code>DRG_SPOKE_RT</code> (0/0 → HUB_DRG_ATT) → <code>HUB_INGRESS_RT</code> (0/0 → 10.0.16.160) → VyOS (NAT, 경로 0/0 → 10.0.0.1) → eth1 → <code>HUB_FW_UNTRUST_PUB_RT</code> (0/0 → IGW).</li>
+    <li>IGW → reserved public IP → untrust VNIC → VyOS (NAT 되돌림, 10.1.0.0/16 → 10.0.16.1) → <code>HUB_FW_TRUST_PRI_RT</code> (10.1.0.0/16 → DRG) → hub attachment 의 자동 생성 DRG route table (spoke CIDR 을 배움) → EC_PRD_DRG_ATT.</li>
+    <li>목적지가 trust VNIC 자기 주소가 아닌 패킷 (e.g., 1.1.1.1 행) 을 OCI 가 버려 VyOS 까지 오지 않는다.</li>
+    <li>Private IP target 은 그 주소가 있어야 한다. 그래서 저장소는 <code>enabled: auto</code> 로 NVA 가 생긴 뒤에 켠다.</li>
+    <li>spoke 끼리 DRG 에서 바로 통신해 방화벽을 건너뛴다. 운영 ↔ 개발 차단이 무력해진다.</li>
+    <li>VyOS 의 VCN-PRD · VCN-NONPRD 어디에도 10.3.0.0/16 이 없어, TRUST-INTRA 의 drop rule 에 걸리지 않고 default accept 로 간다.</li>
+    <li>거치지 않는다. <code>EC_PRD_RT</code> 의 All ICN Services → <code>EC_PRD_SGW</code> rule 이 0/0 보다 구체적이라 먼저 맞는다. spoke 마다 두면 OCI 가 요청의 VCN 을 구분해 VCN 별 버킷 접근 제어 (IAM network source) 를 할 수 있고, hub 가 고장 나도 OCI 서비스 접근은 끊기지 않는다. 방화벽 로그 대신 spoke 의 flow log 로 본다.</li>
+    <li>route target 용 VIP 다. 이중화하면 장애 때 이 주소만 대기 장비로 옮겨 route table 을 고치지 않고 절체한다.</li>
+    <li>hub trust subnet 의 <code>HUB_FW_TRUST_SL</code>. Source <code>10.0.0.0/14</code> 는 10.0.0.0-10.3.255.255 라서 10.4 · 10.5 에서 온 패킷을 OCI 가 trust 다리에 들어가기 전에 막는다. 범위를 넓히거나 (e.g., 10.0.0.0/13) ERP 대역을 추가한다. 실제 저장소의 <code>hub.yaml</code> 은 10.0.0.0/13 으로 되어 있다.</li>
+  </ol>
+</section>
+
+</body>
+</html>
