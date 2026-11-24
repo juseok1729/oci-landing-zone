@@ -5,12 +5,37 @@
 ![hashicorp/time](https://img.shields.io/badge/hashicorp%2Ftime-0.14.2-844FBA?logo=hashicorp&logoColor=white)
 ![OCI backend](https://img.shields.io/badge/state-OCI%20Object%20Storage-C74634?logo=oracle&logoColor=white)
 
-**YAML 이 설계서이고, Terraform 은 그 YAML 을 읽어 리소스로 바꾸는 범용 엔진이다.**
-실제 값(CIDR, 이름, 규칙)은 전부 `config/` 에 있고, `.tf` 코드는 YAML 을 읽어 `for_each` 로 리소스를 만드는 역할만 한다.
-그래서 설계서의 구조(compartment HUB / E-COMMERCE / ERP / MGMT, VCN 6개)를 **YAML 만 고쳐서** 운영한다.
+**YAML 이 곧 설계서, Terraform 은 그 YAML 을 읽어 리소스로 바꾸는 범용 엔진.**  
+실제 값(CIDR, 이름, 규칙)은 전부 `config/`에 있고, `.tf`코드는 YAML 을 읽어 `for_each`로 리소스를 만드는 역할만 한다.
+즉, 설계서의 구조(compartment HUB / E-COMMERCE / ERP / MGMT, VCN 6개)를 **YAML 만 고쳐서** 운영할 수 있다.
+
+## Table of contents
+
+- [Overview](#overview)
+- [Quick Start](#quick-start)
+  - [자격증명 없이 테스트](#자격증명-없이-테스트)
+- [Examples](#examples)
+  - [Subnet](#subnet)
+  - [Route table (subnet 용)](#route-table-subnet-용)
+  - [Gateway 와 gateway 용 route table](#gateway-와-gateway-용-route-table)
+  - [Security List: 프로토콜별](#security-list-프로토콜별)
+  - [NSG: NSG 참조](#nsg-nsg-참조)
+  - [spoke 대역 한 번에 쓰기 (`spokes`)](#spoke-대역-한-번에-쓰기-spokes)
+  - [DRG route table (`config/drg.yaml`) 과 spoke attachment](#drg-route-table-configdrgyaml-과-spoke-attachment)
+  - [새 spoke VCN](#새-spoke-vcn)
+  - [Compartment / bucket](#compartment--bucket)
+- [NVA (VyOS)](#nva-vyos)
+- [모니터링 (Prometheus, Grafana)](#모니터링-prometheus-grafana)
+- [수정하면 재생성되는 항목](#수정하면-재생성되는-항목)
+- [YAML 표기법](#yaml-표기법)
+- [검증 (plan 단계)](#검증-plan-단계)
+- [운영시](#운영시)
+- [내부 구조 메모 (modules/, stacks/ 를 고칠 사람용)](#내부-구조-메모-modules-stacks-를-고칠-사람용)
+
+## Overview
 
 > [!IMPORTANT]
-> 팀원은 `config/` 아래 YAML 만 수정한다. `modules/` · `stacks/` 는 관리자(owner)만 손댄다.
+> 팀원은 `config/` 아래 YAML 만 수정한다. `modules/`, `stacks/` 는 관리자(owner)만 손댄다.
 
 ```
 oci-landing-zone/
@@ -18,7 +43,8 @@ oci-landing-zone/
 │   ├── compartments.yaml
 │   ├── drg.yaml            DRG, DRG route table
 │   ├── buckets.yaml
-│   ├── nvas.yaml           NVA(VyOS) 인스턴스 · VNIC
+│   ├── nvas.yaml           NVA(VyOS) 인스턴스, VNIC
+│   ├── mon.yaml            모니터링 VM (Prometheus, Grafana)
 │   └── vcns/
 │       ├── hub.yaml        VCN 1개 = 파일 1개 = stack 1개
 │       ├── ec-prd.yaml     hub 외 파일은 전부 spoke (파일 이름 = workspace 이름 = make target)
@@ -28,12 +54,14 @@ oci-landing-zone/
 │       └── mgmt.yaml
 ├── stacks/                 state 를 나눈 실행 단위 (얇은 루트 모듈)
 │   ├── 00-iam/             compartment            (홈 리전)        state: lz/iam.tfstate
-│   ├── 10-hub/             DRG · HUB_VCN · bucket 전부             state: lz/hub.tfstate
+│   ├── 10-hub/             DRG, HUB_VCN, bucket 전부               state: lz/hub.tfstate
 │   ├── 20-spoke/           spoke VCN              (workspace 별)   state: tf-state-env/<spoke 이름>/lz/spoke.tfstate
-│   └── 30-nva/             NVA 인스턴스 · VNIC · reserved IP          state: lz/nva.tfstate
-│       ├── vyos.sh.tftpl   VyOS 설정 템플릿 (make configure-nva)
-│       ├── configure.sh    SSH 로 설정 적용
-│       └── vnic/           secondary VNIC 을 순서대로 붙이는 module
+│   ├── 30-nva/             NVA 인스턴스, VNIC, reserved IP            state: lz/nva.tfstate
+│   │   ├── vyos.sh.tftpl   VyOS 설정 템플릿 (make configure-nva)
+│   │   ├── configure.sh    SSH 로 설정 적용
+│   │   └── vnic/           secondary VNIC 을 순서대로 붙이는 module
+│   └── 40-mon/             모니터링 VM, NSG, OCI Bastion            state: lz/mon.tfstate
+│       └── cloud-init.yaml.tftpl  Prometheus, Grafana 컨테이너
 ├── modules/
 │   ├── config/             YAML 읽기 + 알 수 없는 키(오타) 검사
 │   ├── compartments/
@@ -44,7 +72,7 @@ oci-landing-zone/
 └── Makefile
 ```
 
-## 빠른 시작
+## Quick Start
 
 > [!IMPORTANT]
 > state 버킷은 Terraform 이 만들지 않는다. **Versioning 을 활성화한 버킷을 먼저 만들고** 시작한다.
@@ -61,14 +89,15 @@ make apply-ec-prd     # 3. spoke (ec-dev, erp-prd, erp-dev, mgmt 도 같은 방�
 make apply-nva        # 4. NVA (VyOS)
 make configure-nva    # 5. VyOS 설정 (SSH 비밀번호: .env.local 의 NVA_PASS)
 make apply-hub        # 6. hub 의 enabled: auto rule(→ NVA)이 켜진다. 한 줄로: make apply-nva configure-nva apply-hub
-# 또는 make apply-all  (iam → hub → spoke 전부 → nva. stack 마다 yes 를 묻는다) 뒤에 make configure-nva apply-hub
+make apply-mon        # 7. 모니터링 VM (Prometheus, Grafana) + Bastion. mgmt, nva 다음
+# 또는 make apply-all  (iam → hub → spoke 전부 → nva → mon. stack 마다 yes 를 묻는다) 뒤에 make configure-nva apply-hub
 # 삭제: make destroy-all (역순. compartment 는 state 에서만 빠지고 OCI 에 남음. cf. enable_delete = false)
 ```
 
 지금 config 기준 stack 은 아래와 같다. spoke 의 make target 은 `config/vcns` 파일 이름에서 나온다.
 
 | VCN 파일 | compartment | CIDR | 실행 |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `hub.yaml` | HUB | `10.0.0.0/16` | `make apply-hub` |
 | `ec-prd.yaml` | E-COMMERCE | `10.1.0.0/16` | `make apply-ec-prd` |
 | `ec-dev.yaml` | E-COMMERCE | `10.2.0.0/16` | `make apply-ec-dev` |
@@ -91,10 +120,12 @@ make apply-hub        # 6. hub 의 enabled: auto rule(→ NVA)이 켜진다. 한
   - nva ← iam, hub: `compartment_ids`, `subnet_ids`
 - spoke 는 `stacks/20-spoke` 하나를 **workspace 로 나눠** 쓴다. workspace 이름 = `config/vcns/<이름>.yaml`.
   Makefile 이 `workspace select` 를 대신 한다. 직접 실행하는 명령어는 아래와 같다.
+
   ```bash
   cd stacks/20-spoke && terraform workspace select -or-create ec-prd && terraform plan -var-file=../../terraform.tfvars
   ```
-- workspace 는 state 버킷의 `tf-state-env/<이름>/lz/spoke.tfstate` 파일이다 (iam · hub 는 workspace 없이 `lz/` 바로 아래).
+
+- workspace 는 state 버킷의 `tf-state-env/<이름>/lz/spoke.tfstate` 파일이다 (iam, hub 는 workspace 없이 `lz/` 바로 아래).
   목록은 `terraform -chdir=stacks/20-spoke workspace list`, 정리는 `workspace delete <이름>` 이다 (리소스가 남은 state 는 거부된다).
 - 새 spoke VCN 은 `config/vcns/<이름>.yaml` 을 추가하고 `make apply-<이름>` (Makefile 이 `config/vcns` 에서 spoke 목록을 찾는다)
 - Compartment(IAM)는 홈 리전에서만 생성된다. 리소스 리전과 홈 리전이 다르면 `home_region` 지정
@@ -106,15 +137,16 @@ make apply-hub        # 6. hub 의 enabled: auto rule(→ NVA)이 켜진다. 한
 ### 자격증명 없이 테스트
 
 ```bash
-make test        # 세 stack 각각 terraform init -backend=false && terraform test
+make test        # stack 마다 terraform init -backend=false && terraform test
 ```
 
 | stack | 확인하는 것 |
-|---|---|
+| --- | --- |
 | 00-iam | `compartments.yaml` 의 compartment 가 모두 만들어지는지 |
-| 10-hub | 실제 `hub.yaml` apply 그래프 (subnet 6, RT 7, DRG 1, attachment 1, SL 4, NSG 2, `buckets.yaml` 의 bucket 전부), privateip target · NSG · source_port, `enabled: auto` (NVA IP 유무에 따라 켜짐 · 빠짐), 게이트웨이 RT 제약 위반 거부, `spokes` 펼침(`tests/fixtures/spokes`) |
-| 20-spoke | ec-prd · ec-dev · erp-prd · erp-dev · mgmt apply (subnet · RT · attachment · NSG 개수, 자기 SGW 와 all-services 경로), hub 파일 선택 거부, 잘못된 YAML(`tests/fixtures/broken`) 거부, `spokes` 에서 자기 대역 제외 |
+| 10-hub | 실제 `hub.yaml` apply 그래프 (subnet 6, RT 7, DRG 1, attachment 1, SL 4, NSG 2, `buckets.yaml` 의 bucket 전부), privateip target, NSG, source_port, `enabled: auto` (NVA IP 유무에 따라 켜짐, 빠짐), 게이트웨이 RT 제약 위반 거부, `spokes` 펼침(`tests/fixtures/spokes`) |
+| 20-spoke | ec-prd, ec-dev, erp-prd, erp-dev, mgmt apply (subnet, RT, attachment, NSG 개수, 자기 SGW 와 all-services 경로), hub 파일 선택 거부, 잘못된 YAML(`tests/fixtures/broken`) 거부, `spokes` 에서 자기 대역 제외 |
 | 30-nva | 실제 `nvas.yaml` apply (secondary VNIC 3, secondary IP 1, reserved IP 1, skip source/dest check, public IP), hub 미적용 안내, 잘못된 YAML(`tests/fixtures/broken-nva`) 거부 |
+| 40-mon | 실제 `mon.yaml` apply (mgmt subnet, 고정 IP, 공인 IP 없음, scrape 대상 = NVA trust IP:9100, NSG = Bastion → 22, 3000), nva 미적용 안내, 잘못된 YAML(`tests/fixtures/broken-mon`) 거부 |
 
 다른 stack 의 state 는 테스트에서 `override_data` 로 대신한다. mock `compartment_ids` 는 `config/compartments.yaml` 의 이름을 그대로 쓰고, `tests/fixtures` 는 전용 이름 `TEST_COMP` 를 쓴다.
 
@@ -122,7 +154,7 @@ make test        # 세 stack 각각 terraform init -backend=false && terraform t
 > `make test` 는 OCI 에 연결하지 않고(mock provider), 선택된 workspace 와 상관없이 `default` workspace 로 돈다.
 > config 를 고친 뒤 apply 전에 돌리면 YAML 오류와 리소스 개수 변화를 먼저 잡을 수 있다.
 
-## 예제 (자주 하는 작업)
+## Examples
 
 아래 조각은 `config/vcns/<파일>.yaml` 의 VCN 아래(들여쓰기 2칸)에 넣고 `make apply-<stack>` 으로 반영한다.
 이름은 예시다. 전체 키는 「YAML 표기법」, 기본값은 「기본값」 표를 본다.
@@ -161,7 +193,7 @@ make test        # 세 stack 각각 terraform init -backend=false && terraform t
           description: "HQ VPN"
         - destinations: [10.1.0.0/16, 10.2.0.0/16]             # 대상 여러 개 → destinations (같은 target)
           target: drg:HUB_DRG
-          description: "ec-prd · ec-dev VCN"
+          description: "ec-prd, ec-dev VCN"
         - destination: spokes                                   # spoke VCN CIDR 전체 (config/vcns 의 hub 외 파일)
           target: drg:HUB_DRG
           description: "spoke VCN"
@@ -189,7 +221,7 @@ make test        # 세 stack 각각 terraform init -backend=false && terraform t
 
   service_gateways:
     HUB_SGW:
-      services: all-services                  # 또는 objectstorage. hub 안의 리소스(NVA · WAF · DNS)용
+      services: all-services                  # 또는 objectstorage. hub 안의 리소스(NVA, WAF, DNS)용
       route_table:                            # SGW 로 들어온 트래픽이 갈 곳. target 은 drg: / privateip: 만
         name: HUB_SGW_RT                      # 지금은 rule 없음 (아래 WARNING)
 
@@ -293,14 +325,14 @@ make test        # 세 stack 각각 terraform init -backend=false && terraform t
 ### spoke 대역 한 번에 쓰기 (`spokes`)
 
 spoke 대역을 CIDR 로 나열하는 대신 `spokes` 라고 쓴다. `config/vcns` 의 hub 외 파일에 있는 VCN CIDR 전부로 펼쳐지므로
-spoke 를 추가 · 삭제해도 이 rule 은 고치지 않는다.
+spoke 를 추가, 삭제해도 이 rule 은 고치지 않는다.
 
 ```yaml
 # config/vcns/hub.yaml: NVA 가 검사한 트래픽을 spoke 전체로
   route_tables:
     HUB_FW_TRUST_PRI_RT:
       rules:
-        - destination: spokes                     # → 10.1 · 10.2 · 10.3 · 10.4 · 10.5 (/16)
+        - destination: spokes                     # → 10.1, 10.2, 10.3, 10.4, 10.5 (/16)
           target: drg:HUB_DRG
 ```
 
@@ -308,15 +340,15 @@ spoke 를 추가 · 삭제해도 이 rule 은 고치지 않는다.
 # config/vcns/mgmt.yaml: spoke 안에서 쓰면 자기 대역은 빠진다
     MGMT_BASTION_PUB_RT:
       rules:
-        - destinations: [10.0.0.0/16, spokes]     # → 10.0 · 10.1 · 10.2 · 10.4 · 10.5 (MGMT 의 10.3 은 빠짐)
+        - destinations: [10.0.0.0/16, spokes]     # → 10.0, 10.1, 10.2, 10.4, 10.5 (MGMT 의 10.3 은 빠짐)
           target: drg:HUB_DRG
 ```
 
 | 쓴 곳 | 쓴 값 | 펼친 결과 (지금 config, 모두 `/16`) |
-|---|---|---|
-| hub 의 route rule | `spokes` | `10.1` · `10.2` · `10.3` · `10.4` · `10.5` |
-| mgmt 의 route rule | `[10.0.0.0/16, spokes]` | `10.0` · `10.1` · `10.2` · `10.4` · `10.5` |
-| `drg.yaml` 의 DRG route rule | `[10.0.0.0/16, spokes]` | `10.0` · `10.1` · `10.2` · `10.3` · `10.4` · `10.5` |
+| --- | --- | --- |
+| hub 의 route rule | `spokes` | `10.1`, `10.2`, `10.3`, `10.4`, `10.5` |
+| mgmt 의 route rule | `[10.0.0.0/16, spokes]` | `10.0`, `10.1`, `10.2`, `10.4`, `10.5` |
+| `drg.yaml` 의 DRG route rule | `[10.0.0.0/16, spokes]` | `10.0`, `10.1`, `10.2`, `10.3`, `10.4`, `10.5` |
 
 펼친 결과는 plan 의 `Changes to Outputs` 에 `rule_destinations` 로 나온다. apply 뒤에는 아래 명령어로 다시 본다.
 
@@ -325,7 +357,7 @@ terraform -chdir=stacks/10-hub output rule_destinations
 ```
 
 > [!NOTE]
-> `spokes` 는 route rule(VCN · DRG) 전용이다. SL / NSG 규칙에 쓰면 형식 오류로 막힌다.
+> `spokes` 는 route rule(VCN, DRG) 전용이다. SL / NSG 규칙에 쓰면 형식 오류로 막힌다.
 > `spokes` 에 hub 대역(`10.0.0.0/16`)은 들어가지 않는다. 필요하면 위처럼 따로 적고, `spokes` 와 같은 대역을 또 적으면 중복 destination 오류가 난다.
 
 ### DRG route table (`config/drg.yaml`) 과 spoke attachment
@@ -372,7 +404,7 @@ make apply-hub
 # 4. 새 spoke
 make apply-stg
 
-# 5. NVA 에 새 대역 반영 (경로 · NAT · 그룹)
+# 5. NVA 에 새 대역 반영 (경로, NAT, 그룹)
 make configure-nva
 ```
 
@@ -411,7 +443,7 @@ spoke test 에 run 을 추가하지 않으면 `make test` 는 새 파일을 검�
 > [!IMPORTANT]
 > hub 쪽 route rule 과 `drg.yaml` 이 spoke 대역을 `spokes` 로 적고 있으면 새 spoke 의 대역(`10.6.0.0/16`)은 자동으로 들어간다.
 > CIDR 을 직접 나열한 rule 이 있으면 그 목록에도 추가해야 응답이 돌아온다. 어느 쪽이든 hub 를 먼저 `make apply-hub` 한 뒤 `make apply-stg` 한다.
-> NVA(VyOS)의 경로 · NAT · 그룹은 `make configure-nva` 를 다시 실행하면 새 대역이 들어간다.
+> NVA(VyOS)의 경로, NAT, 그룹은 `make configure-nva` 를 다시 실행하면 새 대역이 들어간다.
 
 ### Compartment / bucket
 
@@ -435,7 +467,7 @@ buckets:
     versioning: true
 ```
 
-**compartment 하나로 운영하기**: 모든 VCN · bucket 이 같은 compartment 키를 가리키게 하면 된다. 코드는 고치지 않는다.
+**compartment 하나로 운영하기**: 모든 VCN, bucket 이 같은 compartment 키를 가리키게 하면 된다. 코드는 고치지 않는다.
 
 ```yaml
 # config/compartments.yaml
@@ -463,16 +495,16 @@ FortiGate 대신 VyOS 인스턴스(NVA)를 `stacks/30-nva` 로 만들고, VyOS �
 
 ```bash
 make apply-nva                                      # 1. 인스턴스 + VNIC 4개 + secondary IP + reserved IP
-terraform -chdir=stacks/30-nva output nva_vnics     #    (선택) VNIC 별 IP · MAC 확인
+terraform -chdir=stacks/30-nva output nva_vnics     #    (선택) VNIC 별 IP, MAC 확인
 make configure-nva                                  # 2. VyOS 설정 (SSH, .env.local 의 NVA_PASS)
 make apply-hub                                      # 3. hub 의 enabled: auto rule 이 NVA 로 켜진다
 # 한 줄로: make apply-nva configure-nva apply-hub
 ```
 
 | 단계 | 하는 일 | 고칠 파일 |
-|---|---|---|
+| --- | --- | --- |
 | `apply-nva` | `config/nvas.yaml` 대로 인스턴스를 만들고, 부팅이 끝난 뒤(180초) secondary VNIC 을 YAML 순서대로 하나씩 붙인다. 그래서 VyOS 에서 eth0 = mgmt(primary), eth1 = untrust, eth2 = trust, eth3 = ha 가 된다 | `config/nvas.yaml` |
-| `configure-nva` | 설정 스크립트(output `vyos_config`)를 mgmt 공인 IP 로 보내 `commit` · `save` 한다. 인터페이스 주소 · hw-id(MAC) · 게이트웨이 · spoke 경로 · NAT · VCN-PRD/NONPRD 그룹은 config 에서 채운다 | `stacks/30-nva/vyos.sh.tftpl` |
+| `configure-nva` | 설정 스크립트(output `vyos_config`)를 mgmt 공인 IP 로 보내 `commit`, `save` 한다. 인터페이스 주소, hw-id(MAC), 게이트웨이, spoke 경로, NAT, VCN-PRD/NONPRD/MGMT 그룹은 config 에서 채운다 | `stacks/30-nva/vyos.sh.tftpl` |
 | `apply-hub` | `privateip:10.0.16.160` 을 target 으로 쓰는 rule(`enabled: auto`)을 켠다 | `config/vcns/hub.yaml` |
 
 SSH 는 비밀번호 인증이다 (이미지가 그렇게 구성돼 있어 SSH 키는 넣지 않는다). 비밀번호는 repo 루트 `.env.local` 에 두고, 이 파일은 `.gitignore` 에 있다.
@@ -484,16 +516,41 @@ NVA_PASS="<vyos 사용자 비밀번호>"
 
 > [!WARNING]
 > `make apply-hub` 는 `make configure-nva` **다음에** 한다. NVA IP 가 생긴 뒤 hub 를 apply 하면 rule 이 바로 켜지는데,
-> VyOS 설정 전이면 spoke 의 인터넷 · spoke 간 통신이 끊긴다.
+> VyOS 설정 전이면 spoke 의 인터넷, spoke 간 통신이 끊긴다.
 
-- **VyOS 설정 변경**: `stacks/30-nva/vyos.sh.tftpl` 을 고치고 `make apply-nva configure-nva` 를 실행한다 (apply 가 output `vyos_config` 를 갱신한다). `NAT-INSIDE` · `VCN-PRD` · `VCN-NONPRD` 그룹은 매번 다시 만들고, 나머지는 `set` 만 하므로 템플릿에서 지운 설정은 장비에서 직접 `delete` 한다.
-- **spoke 추가**: 경로 · NAT · 그룹은 템플릿을 고치지 않아도 따라온다. `make apply-nva configure-nva` 만 다시 실행한다.
-- **VCN 간 차단**: `config/vcns` 파일 이름이 `prd` 로 끝나면 VCN-PRD, `mgmt` 를 뺀 나머지 spoke 는 VCN-NONPRD 이고, 두 그룹 사이는 NVA 가 막는다. `mgmt` 는 어느 그룹에도 없어 모든 VCN 과 양방향으로 통신한다 (모니터링 · 접근제어 · DB 암호화 솔루션 자리).
+- **VyOS 설정 변경**: `stacks/30-nva/vyos.sh.tftpl` 을 고치고 `make apply-nva configure-nva` 를 실행한다 (apply 가 output `vyos_config` 를 갱신한다). `NAT-INSIDE`, `VCN-PRD`, `VCN-NONPRD`, `VCN-MGMT` 그룹은 매번 다시 만들고, 나머지는 `set` 만 하므로 템플릿에서 지운 설정은 장비에서 직접 `delete` 한다.
+- **spoke 추가**: 경로, NAT, 그룹은 템플릿을 고치지 않아도 따라온다. `make apply-nva configure-nva` 만 다시 실행한다.
+- **VCN 간 차단**: `config/vcns` 파일 이름이 `prd` 로 끝나면 VCN-PRD, `mgmt` 를 뺀 나머지 spoke 는 VCN-NONPRD 이고, 두 그룹 사이는 NVA 가 막는다. `mgmt` 는 어느 그룹에도 없어 모든 VCN 과 양방향으로 통신한다 (모니터링, 접근제어, DB 암호화 솔루션 자리).
+- **모니터링**: VyOS 의 node-exporter 가 trust IP `10.0.16.11:9100` 에서 지표(인터페이스 bps, CPU, 메모리, conntrack)를 내보낸다. trust SL 은 10.0.0.0/13 을 다 열어 두므로 VyOS input filter 로 mgmt VCN(`VCN-MGMT`)만 허용한다. 수집, 화면은 [모니터링](#모니터링-prometheus-grafana) 의 40-mon 이 한다.
 - **eth 번호 확인**: VyOS 의 `show interfaces` MAC 과 `nva_vnics` output 의 `mac` 을 대조한다.
 - **다시 만들기**: `make destroy-nva && make apply-nva configure-nva apply-hub`. reserved IP 도 지워져 공인 IP 가 바뀐다. 전에 쓰던 공인 IP 를 다시 받으면 SSH host key 불일치로 접속이 거부되니 `ssh-keygen -R <IP>` 로 지운다.
 
 > [!NOTE]
 > `make apply-all` 은 hub 를 nva 보다 먼저 apply 하므로 그때는 auto rule 이 빠진 채로 만들어진다. 끝난 뒤 `make configure-nva apply-hub` 를 실행한다.
+
+## 모니터링 (Prometheus, Grafana)
+
+`stacks/40-mon` 이 `config/mon.yaml` 대로 mgmt 의 `MGMT_MON_PRI_SBN` 에 VM 1대를 만든다. VM 은 cloud-init 으로 Prometheus 와 Grafana 컨테이너를 띄우고, Prometheus 는 NVA 의 trust IP:9100 (VyOS node-exporter) 을 scrape 한다. 공인 IP 는 없고, Grafana 는 같은 subnet 의 OCI Bastion 으로 port forwarding 해서 연다.
+
+```bash
+make configure-nva                                       # 1. VyOS 에 node-exporter 가 들어 있어야 한다
+make apply-mon                                           # 2. VM + NSG + Bastion
+terraform -chdir=stacks/40-mon output -raw grafana_tunnel  # 3. 터널 명령 2줄: session 을 만들고, 나온 OCID 로 ssh -L
+# 4. 브라우저로 http://localhost:3000 (admin / admin, 첫 로그인에 바꾼다) → Dashboards → Import → 1860 (Node Exporter Full)
+```
+
+| 무엇 | 어디서 | 고칠 파일 |
+| --- | --- | --- |
+| VM 크기, IP, subnet, 접속 허용 대역 | `make apply-mon` | `config/mon.yaml` |
+| scrape 대상 | 30-nva state 의 `nva_vnics` 에서 이름이 `trust` 인 VNIC IP | (자동) |
+| Prometheus, Grafana 버전, 설정 | cloud-init (첫 부팅에만 돈다) | `stacks/40-mon/cloud-init.yaml.tftpl` |
+
+> [!WARNING]
+> cloud-init 내용(scrape 대상 포함)이 바뀌면 `make apply-mon` 이 VM 을 **다시 만든다** (첫 부팅에만 돌기 때문). Prometheus 에 쌓인 지표와 Grafana 에서 만든 대시보드, 바꾼 비밀번호도 같이 사라진다.
+
+- **패키지, 이미지 경로**: podman 은 SGW(OCI yum)로, 컨테이너 이미지는 NVA 를 거쳐 인터넷(quay.io, docker.io)에서 받는다. NVA 가 인터넷 NAT 를 하기 전이면 컨테이너가 뜨지 않는다.
+- **NSG**: Bastion private endpoint IP → 22, 3000, `grafana_from` → 3000 만 연다. Bastion session 을 열 수 있는 공인 대역은 `bastion_from` 이다.
+- **SSH**: `ssh_key_file` 의 공개키가 VM(`opc`)과 Bastion session 에 같이 쓰인다. 22 도 같은 방식으로 port forwarding 한다.
 
 ## 수정하면 재생성되는 항목
 
@@ -502,17 +559,17 @@ NVA_PASS="<vyos 사용자 비밀번호>"
 > 0 이 아니면 멈추고 `-/+` / `must be replaced` 가 붙은 리소스를 찾는다. 원인은 대부분 아래 표에 있다.
 
 | YAML 에서 바꾸는 것 | 결과 | 영향 |
-|---|---|---|
+| --- | --- | --- |
 | subnet `public` | **삭제 → 재생성** | subnet 안에 VNIC(인스턴스, LB …)가 있으면 삭제가 실패 |
 | subnet `dns_label` | **삭제 → 재생성** | 위와 같음 |
-| VCN `dns_label` | **삭제 → 재생성** | VCN 아래 subnet · RT · gateway 전부 |
-| YAML **키 이름** (subnet · RT · SL · NSG · gateway · bucket) | **삭제 → 재생성** | Terraform 은 키 이름으로 리소스를 구분하므로 이름을 바꾸면 다른 리소스 |
+| VCN `dns_label` | **삭제 → 재생성** | VCN 아래 subnet, RT, gateway 전부 |
+| YAML **키 이름** (subnet, RT, SL, NSG, gateway, bucket) | **삭제 → 재생성** | Terraform 은 키 이름으로 리소스를 구분하므로 이름을 바꾸면 다른 리소스 |
 | compartment 키 이름 | 새로 생성 + 기존 것은 state 에서만 빠짐 | `enable_delete = false` 라서 기존 compartment 는 OCI 에 남음 |
 | spoke **파일 이름** (`config/vcns/<이름>.yaml`) | workspace 가 바뀌어 빈 state 에서 **전부 새로 생성** | 기존 리소스는 옛 workspace state 에 남는다. 이름을 바꾸기 전에 옛 이름으로 `make destroy-<이름>` 한다 |
 
 제자리 수정(`~ update in-place`) 되는 것:
 
-- route rule 추가 · 삭제 · `enabled`, SL / NSG 규칙, `display_name`, subnet 의 `route_table` · `security_lists`
+- route rule 추가, 삭제, `enabled`, SL / NSG 규칙, `display_name`, subnet 의 `route_table`, `security_lists`
 - VCN `cidrs` 에 대역 추가
 - subnet `cidr`: 시작 주소가 같아야 함 (e.g., `10.0.80.0/24` → `/23` 처럼 크기만). 쓰고 있는 IP 도 새 범위 안에 있어야 함
 - NSG 규칙을 목록 **중간에** 끼우면 뒤 규칙들이 순번 키(`<NSG>|ingress|<i>`)가 밀려 줄줄이 update 된다
@@ -521,14 +578,14 @@ NVA_PASS="<vyos 사용자 비밀번호>"
 > NSG 규칙은 목록 **끝에 추가**하면 plan 이 새 규칙 1개 생성으로 끝난다.
 
 근거: oracle/oci provider 의 `ForceNew` 필드 (`core_subnet_resource.go`, `core_vcn_resource.go`).
-SGW · IGW · DRG attachment · bucket 의 재생성 조건은 여기 정리하지 않았으니 plan 의 `-/+` 로 판단한다.
+SGW, IGW, DRG attachment, bucket 의 재생성 조건은 여기 정리하지 않았으니 plan 의 `-/+` 로 판단한다.
 
 ## YAML 표기법
 
 **route table 은 붙는 곳에 적는다.** 적힌 위치가 곧 종류이고, 종류마다 쓸 수 있는 target 이 다르다 (OCI 제약).
 
 | 위치 | 종류 | 쓸 수 있는 target |
-|---|---|---|
+| --- | --- | --- |
 | `route_tables:` | subnet 용 | `igw:` `sgw:` `drg:` `privateip:` |
 | `service_gateways.<SGW>.route_table:` (`name`, `rules`) | Service Gateway 용 | `drg:` `privateip:` |
 | `drg_attachment.route_table:` (`name`, `rules`) | DRG attachment(VCN ingress) 용 | `sgw:` `privateip:` |
@@ -539,7 +596,7 @@ RT 를 다른 위치로 옮기면 Terraform 주소가 바뀌어 **삭제 후 재
 **route rule target**
 
 | 표기 | 의미 |
-|---|---|
+| --- | --- |
 | `igw:HUB_IGW` | 같은 VCN 의 Internet Gateway |
 | `sgw:HUB_SGW` | 같은 VCN 의 Service Gateway |
 | `drg:HUB_DRG` | 이 VCN 이 attach 된 DRG |
@@ -551,7 +608,7 @@ RT 를 다른 위치로 옮기면 Terraform 주소가 바뀌어 **삭제 후 재
 **route rule `enabled`**: `true`(기본) | `false`(끄기) | `auto`(`privateip:` target 의 IP 가 있을 때만 켜기)
 
 **`spokes`**: `config/vcns` 의 hub 외 파일에 있는 VCN CIDR 전부로 펼쳐진다 (자기 VCN 의 CIDR 은 빠진다). VCN route rule 과 DRG route rule 에서 쓴다.
-spoke 파일을 추가 · 삭제하면 다음 `make apply-hub` 때 목록이 따라 바뀐다. 펼친 결과는 stack 출력 `rule_destinations` 로 확인한다 (「예제 > spoke 대역 한 번에 쓰기」).
+spoke 파일을 추가, 삭제하면 다음 `make apply-hub` 때 목록이 따라 바뀐다. 펼친 결과는 stack 출력 `rule_destinations` 로 확인한다 (「Examples > spoke 대역 한 번에 쓰기」).
 
 **SL / NSG 규칙**: `source`(ingress) / `destination`(egress) 은 CIDR 또는 `all-services` / `objectstorage`.
 NSG 규칙은 `nsg:<이름>` 으로 **같은 VCN 의** 다른 NSG(또는 자기 자신)도 지정할 수 있다 (Security List 는 불가).
@@ -565,7 +622,7 @@ NSG 규칙은 `nsg:<이름>` 으로 **같은 VCN 의** 다른 NSG(또는 자기 
 **기본값**
 
 | 항목 | 생략 시 |
-|---|---|
+| --- | --- |
 | subnet `route_table` | VCN 기본 route table (규칙 없음, VCN 내부 통신만) |
 | subnet `security_lists` | VCN Default Security List (`default` 를 목록에 섞어 쓸 수도 있음) |
 | subnet `public` | `false` (Public IP 금지) |
@@ -597,11 +654,12 @@ config/ YAML 오류 4건
   - route table HUB_SGW_RT: Service Gateway 용 route table 은 drg: / privateip: 만 target 으로 쓸 수 있습니다 (igw:HUB_IGW)
 ```
 
-검사 항목: 앞 stack 미적용(`make apply-iam 을 먼저 실행하세요` / `make apply-hub 를 먼저 실행하세요`), 알 수 없는 키(오타), compartment·route table·security list·NSG·gateway·DRG 참조,
+검사 항목: 앞 stack 미적용(`make apply-iam 을 먼저 실행하세요` / `make apply-hub 를 먼저 실행하세요`), 알 수 없는 키(오타), compartment, route table, security list, NSG, gateway, DRG 참조,
 게이트웨이 RT 의 target 제약, subnet CIDR 범위, 자기 VCN CIDR 를 DRG 로 보내는 rule, destination 중복,
 dns_label 형식, 이름 중복(attachment 포함), 포트 형식, DRG next_hop, VCN 파일당 1개,
 route rule `enabled` 값(`true` / `false` / `auto`, `auto` 는 `privateip:` target 만),
-`nvas.yaml` 의 필수 키 · compartment · hub subnet 이름 · `public_ip` 값 · VNIC 4개 이하 · primary 의 `secondary_ips` 금지.
+`nvas.yaml` 의 필수 키, compartment, hub subnet 이름, `public_ip` 값, VNIC 4개 이하, primary 의 `secondary_ips` 금지,
+`mon.yaml` 의 필수 키, compartment, spoke subnet 이름.
 
 > [!NOTE]
 > 검사하지 않는 것: subnet 끼리 CIDR 겹침(apply 에서 OCI 가 거부), OCID 로 직접 쓴 target,
@@ -612,7 +670,7 @@ route rule `enabled` 값(`true` / `false` / `auto`, `auto` 는 `privateip:` targ
 **NVA 로 보내는 rule** (`config/vcns/hub.yaml`, `enabled: auto`: NVA 의 10.0.16.160 이 있을 때만 켜짐)
 
 | route table | rule | 역할 |
-|---|---|---|
+| --- | --- | --- |
 | `HUB_INGRESS_RT` | `0.0.0.0/0 → privateip:10.0.16.160` | spoke → 인터넷을 NVA 로 |
 | `HUB_INGRESS_RT` | spoke 대역 → `privateip:10.0.16.160` | spoke ↔ spoke 를 NVA 로 |
 | `HUB_INGRESS_RT` | `10.0.64.0/24 → privateip:10.0.16.160` | DRG → WAF 를 NVA 로 |
@@ -625,12 +683,12 @@ route rule `enabled` 값(`true` / `false` / `auto`, `auto` 는 `privateip:` targ
 **subnet CIDR 규칙**: 세 번째 옥텟을 16 단위(0/16/32/48 …)로 잡는다 (i.e., 각 subnet 이 /20 경계에서 시작).
 그래서 쓰는 중에도 각 subnet 을 같은 시작 주소로 /20 까지 in-place 확장할 수 있다. cf. 「수정하면 재생성되는 항목」의 subnet `cidr`.
 
-**NVA**: 만들기 · 설정 · 다시 만들기는 「NVA (VyOS)」 절을 본다.
+**NVA**: 만들기, 설정, 다시 만들기는 「NVA (VyOS)」 절을 본다.
 
 **범위 밖**: WAPPLES 인스턴스, IPSec(HQ VPN), Service Connector(syslog → bucket), DNS resolver endpoint.
 `DRG_IPSEC_RT` 는 만들어 두었으니 IPSec 연결 후 해당 attachment 에 지정하면 된다.
 
-## 내부 구조 메모 (modules/ · stacks/ 를 고칠 사람용)
+## 내부 구조 메모 (modules/, stacks/ 를 고칠 사람용)
 
 - **Route table 은 3개 리소스 블록** (`route_tables.tf`). YAML 위치(`locals.tf` 의 `rt_all.kind`)로 나뉜다.
   SGW 가 RT 를 참조하고 그 RT 가 다시 SGW 를 target 으로 쓰면 Terraform 순환 의존으로 plan 이 실패하기 때문이다.
