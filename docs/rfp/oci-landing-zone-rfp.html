@@ -1,0 +1,555 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OCI 랜딩존 구축 제안요청서</title>
+<style>
+  :root {
+    --ink: #1c2330;
+    --muted: #5b6577;
+    --line: #d6dbe4;
+    --soft: #f3f5f9;
+    --accent: #c74634;
+    --accent-soft: #fbeceA;
+    --navy: #22324d;
+    --hub: #fdf1ee;
+    --spoke: #eef3fb;
+    --mgmt: #eef8f1;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body {
+    margin: 0;
+    background: #e9ecf1;
+    color: var(--ink);
+    font-family: "Pretendard", "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif;
+    font-size: 10.5pt;
+    line-height: 1.65;
+    word-break: keep-all;
+  }
+  .page {
+    max-width: 210mm;
+    margin: 16px auto;
+    padding: 18mm 16mm;
+    background: #fff;
+    box-shadow: 0 1px 4px rgba(0,0,0,.08);
+  }
+  h1, h2, h3, h4 { color: var(--navy); line-height: 1.35; }
+  h2 {
+    font-size: 16pt;
+    margin: 0 0 12px;
+    padding-bottom: 6px;
+    border-bottom: 2px solid var(--navy);
+  }
+  h3 { font-size: 12.5pt; margin: 22px 0 8px; }
+  h4 { font-size: 11pt; margin: 16px 0 6px; }
+  p { margin: 6px 0 10px; }
+  ul, ol { margin: 6px 0 10px; padding-left: 20px; }
+  li { margin: 2px 0; }
+  code {
+    font-family: "SF Mono", "Menlo", "Consolas", monospace;
+    font-size: 9pt;
+    background: var(--soft);
+    padding: 1px 4px;
+    border-radius: 3px;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 8px 0 14px; font-size: 9.5pt; }
+  th, td { border: 1px solid var(--line); padding: 6px 8px; vertical-align: top; text-align: left; }
+  th { background: var(--soft); color: var(--navy); font-weight: 700; white-space: nowrap; }
+  tr { break-inside: avoid; }
+  thead { display: table-header-group; }
+  .req { break-inside: avoid; }
+  td.id { white-space: nowrap; font-weight: 700; color: var(--accent); width: 72px; }
+  td.name { width: 150px; font-weight: 600; }
+  td.num, th.num { text-align: right; white-space: nowrap; }
+  td:first-child code { white-space: nowrap; }
+  .kv th { width: 120px; }
+  .note {
+    border-left: 3px solid var(--navy);
+    background: var(--soft);
+    padding: 8px 12px;
+    margin: 10px 0 14px;
+    font-size: 9.5pt;
+  }
+  .note.warn { border-left-color: var(--accent); background: var(--accent-soft); }
+  .tag {
+    display: inline-block;
+    font-size: 8pt;
+    font-weight: 700;
+    padding: 0 6px;
+    border-radius: 3px;
+    background: var(--accent-soft);
+    color: var(--accent);
+    margin-left: 4px;
+    vertical-align: 1px;
+  }
+  .ph { color: var(--accent); font-weight: 600; }
+
+  /* 표지 */
+  .cover { display: flex; flex-direction: column; justify-content: space-between; min-height: 257mm; }
+  .cover .eyebrow { font-size: 11pt; letter-spacing: .2em; color: var(--accent); font-weight: 700; }
+  .cover h1 { font-size: 30pt; margin: 14px 0 6px; letter-spacing: -.01em; }
+  .cover .sub { font-size: 15pt; color: var(--muted); margin: 0; }
+  .cover .bar { height: 6px; width: 72px; background: var(--accent); margin: 28px 0; }
+  .cover table { width: auto; min-width: 60%; font-size: 10.5pt; }
+  .cover .issuer { font-size: 15pt; font-weight: 700; color: var(--navy); }
+  .cover .fine { font-size: 9pt; color: var(--muted); }
+
+  /* 목차 */
+  .toc ol { list-style: none; padding: 0; counter-reset: none; }
+  .toc li { display: flex; gap: 8px; padding: 5px 0; border-bottom: 1px dotted var(--line); }
+  .toc li span:first-child { width: 28px; color: var(--accent); font-weight: 700; }
+  .toc li.sub { padding-left: 28px; font-size: 9.5pt; color: var(--muted); border-bottom: none; padding-top: 1px; padding-bottom: 1px; }
+
+  figure { margin: 10px 0 14px; }
+  figcaption { font-size: 9pt; color: var(--muted); text-align: center; margin-top: 4px; }
+  svg text { font-family: "Pretendard", "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif; }
+
+  @page { size: A4; margin: 16mm 15mm 18mm; @bottom-center { content: counter(page); font-size: 8.5pt; color: #8a93a3; } }
+  @page :first { @bottom-center { content: none; } }
+  @media print {
+    body { background: #fff; }
+    .page { margin: 0; padding: 0; max-width: none; box-shadow: none; break-after: page; }
+    .page:last-child { break-after: auto; }
+    .cover { min-height: 255mm; }
+    h2, h3, h4 { break-after: avoid; }
+    figure, .note { break-inside: avoid; }
+  }
+  @media screen and (max-width: 820px) {
+    .page { margin: 0; padding: 20px 16px; }
+    table { display: block; overflow-x: auto; }
+    .cover { min-height: auto; gap: 40px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- 표지 -->
+<section class="page cover">
+  <div>
+    <div class="eyebrow">REQUEST FOR PROPOSAL</div>
+    <h1>제안요청서</h1>
+    <p class="sub">OCI 랜딩존(Hub &amp; Spoke) 구축 및<br>IaC 기반 운영체계 구축 사업</p>
+    <div class="bar"></div>
+    <table class="kv">
+      <tr><th>사업 기간</th><td>계약일로부터 <span class="ph">[N]</span>개월</td></tr>
+      <tr><th>사업 예산</th><td><span class="ph">[금액]</span>원 (부가세 포함)</td></tr>
+      <tr><th>계약 방법</th><td>제한경쟁입찰, 협상에 의한 계약</td></tr>
+      <tr><th>대상 클라우드</th><td>Oracle Cloud Infrastructure, 서울 리전(ap-seoul-1)</td></tr>
+    </table>
+  </div>
+  <div>
+    <div class="issuer"><span class="ph">[발주기관명]</span></div>
+    <p class="fine"><span class="ph">[YYYY. MM.]</span></p>
+    <p class="fine">대괄호(<span class="ph">[ ]</span>)로 표시한 항목은 발주기관이 공고 전에 채운다. 설계값(CIDR, 이름, 수량)은 발주기관이 운영 중인 IaC 기준선(<code>oci-landing-zone</code>)에서 가져왔다.</p>
+  </div>
+</section>
+
+<!-- 목차 -->
+<section class="page toc">
+  <h2>목차</h2>
+  <ol>
+    <li><span>1</span><span>사업 개요</span></li>
+    <li class="sub">1.1 사업 정보 · 1.2 추진 배경 및 목적 · 1.3 사업 범위</li>
+    <li><span>2</span><span>현황 및 목표 아키텍처</span></li>
+    <li class="sub">2.1 IaC 기준선 · 2.2 목표 구성도 · 2.3 설계값 · 2.4 트래픽 흐름</li>
+    <li><span>3</span><span>제안 요청 내용 (요구사항)</span></li>
+    <li class="sub">3.1 요구사항 총괄표 · 3.2 상세 요구사항</li>
+    <li><span>4</span><span>제안서 작성 요령</span></li>
+    <li><span>5</span><span>제안서 평가</span></li>
+    <li><span>6</span><span>제출 안내</span></li>
+    <li><span>부록</span><span>용어 정리</span></li>
+  </ol>
+</section>
+
+<!-- 1. 사업 개요 -->
+<section class="page">
+  <h2>1. 사업 개요</h2>
+
+  <h3>1.1 사업 정보</h3>
+  <table class="kv">
+    <tr><th>사업명</th><td>OCI 랜딩존(Hub &amp; Spoke) 구축 및 IaC 기반 운영체계 구축 사업</td></tr>
+    <tr><th>사업 기간</th><td>계약일로부터 <span class="ph">[N]</span>개월 (하자보수 기간 별도 12개월)</td></tr>
+    <tr><th>사업 예산</th><td><span class="ph">[금액]</span>원 (부가세 포함, OCI 사용료 제외)</td></tr>
+    <tr><th>계약 방법</th><td>제한경쟁입찰, 협상에 의한 계약 (기술 90 : 가격 10)</td></tr>
+    <tr><th>발주 부서</th><td><span class="ph">[부서명]</span>, 담당자 <span class="ph">[이름 · 연락처]</span></td></tr>
+  </table>
+
+  <h3>1.2 추진 배경 및 목적</h3>
+  <p>발주기관은 이커머스와 ERP 서비스를 OCI 로 옮기면서, 서비스별 VCN 을 허브 하나로 묶는 Hub &amp; Spoke 네트워크를 운영하고 있다. 지금까지는 설계값을 YAML 파일로 관리하고 Terraform 이 그 YAML 을 읽어 리소스를 만드는 방식(이하 「IaC 기준선」)으로 기본 구성을 마쳤다.</p>
+  <p>본 사업의 목적은 다음 세 가지다.</p>
+  <ol>
+    <li><b>목표 아키텍처 완성</b>: 기준선에서 범위 밖으로 남겨 둔 본사 IPSec VPN, WAF, 로그 수집, DNS 를 구축하고, 방화벽 역할의 NVA 를 운영 수준으로 안정화한다.</li>
+    <li><b>운영 자동화</b>: 운영자가 YAML 만 고쳐 spoke 추가, 경로 변경, 방화벽 그룹 갱신까지 끝낼 수 있게 한다. 콘솔 수작업과 수동 설정을 없앤다.</li>
+    <li><b>안전한 변경 체계</b>: 변경 전 자격증명 없이 도는 테스트와 plan 단계 검증으로 오류를 먼저 잡고, 재생성(삭제 후 생성) 위험을 사전에 드러낸다.</li>
+  </ol>
+
+  <h3>1.3 사업 범위</h3>
+  <table>
+    <thead><tr><th>구분</th><th>범위</th></tr></thead>
+    <tr><td class="name">기준선 검증 · 보강</td><td>Compartment, Hub/Spoke VCN, DRG, 중앙 Service Gateway, Object Storage bucket, NVA(VyOS) 의 설계 검토와 운영 수준 보강</td></tr>
+    <tr><td class="name">신규 구축</td><td>본사 IPSec VPN 연동, WAF 배치 · 경로, Service Connector 기반 로그 수집, DNS resolver endpoint, IAM(그룹 · 동적 그룹 · policy)</td></tr>
+    <tr><td class="name">자동화</td><td>YAML 스키마 확장, 사전 검증 규칙, 테스트, NVA 설정 자동화, make 명령 체계</td></tr>
+    <tr><td class="name">운영 이관</td><td>운영 문서, 운영자 교육, 기술이전, 하자보수</td></tr>
+  </table>
+  <div class="note">범위 밖: 애플리케이션 · DB 이관, OCI 사용료, 서비스 VM 의 OS · 미들웨어 구성. 단, 통합 테스트용 VM 은 수행사가 만들고 테스트 후 지운다.</div>
+</section>
+
+<!-- 2. 현황 및 목표 아키텍처 -->
+<section class="page">
+  <h2>2. 현황 및 목표 아키텍처</h2>
+
+  <h3>2.1 IaC 기준선</h3>
+  <p>발주기관은 계약 후 기준선 저장소를 수행사에 제공한다. 기준선은 state 를 나눈 4개 stack 으로 이뤄지고, 뒤 stack 은 앞 stack 의 output 만 읽는다 (의존 방향: iam → hub → spoke → nva).</p>
+  <table>
+    <thead><tr><th>stack</th><th>만드는 것</th><th>state 위치</th></tr></thead>
+    <tr><td><code>00-iam</code></td><td>Compartment (홈 리전)</td><td><code>lz/iam.tfstate</code></td></tr>
+    <tr><td><code>10-hub</code></td><td>DRG, DRG route table, HUB_VCN, bucket 전부</td><td><code>lz/hub.tfstate</code></td></tr>
+    <tr><td><code>20-spoke</code></td><td>spoke VCN 1개 (workspace 로 나눔: 파일 이름 = workspace = make target)</td><td><code>tf-state-env/&lt;spoke&gt;/lz/spoke.tfstate</code></td></tr>
+    <tr><td><code>30-nva</code></td><td>NVA 인스턴스, secondary VNIC, secondary IP, reserved public IP, VyOS 설정 스크립트</td><td><code>lz/nva.tfstate</code></td></tr>
+  </table>
+  <p>모든 설계값은 <code>config/</code> 아래 YAML (<code>compartments.yaml</code>, <code>drg.yaml</code>, <code>buckets.yaml</code>, <code>nvas.yaml</code>, <code>vcns/*.yaml</code>) 에 있고, Terraform 코드는 YAML 을 읽어 <code>for_each</code> 로 리소스를 만드는 범용 엔진이다. 자격증명 없이 도는 테스트 20개가 있다.</p>
+
+  <h3>2.2 목표 구성도</h3>
+  <figure>
+    <svg viewBox="0 0 760 430" width="100%" role="img" aria-label="OCI Hub and Spoke 목표 구성도">
+      <defs>
+        <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#5b6577"/></marker>
+      </defs>
+      <!-- 인터넷 / OSN -->
+      <rect x="20" y="14" width="120" height="40" rx="20" fill="#fff" stroke="#5b6577"/>
+      <text x="80" y="39" text-anchor="middle" font-size="12" fill="#1c2330">인터넷</text>
+      <rect x="620" y="14" width="120" height="40" rx="20" fill="#fff" stroke="#5b6577"/>
+      <text x="680" y="32" text-anchor="middle" font-size="11" fill="#1c2330">OCI 서비스</text>
+      <text x="680" y="46" text-anchor="middle" font-size="10" fill="#5b6577">(OSN)</text>
+
+      <!-- Hub VCN -->
+      <rect x="150" y="70" width="460" height="170" rx="8" fill="#fdf1ee" stroke="#c74634" stroke-width="1.5"/>
+      <text x="162" y="90" font-size="12" font-weight="700" fill="#c74634">HUB_VCN 10.0.0.0/16 · HUB compartment</text>
+      <!-- IGW / SGW -->
+      <rect x="128" y="104" width="44" height="26" rx="4" fill="#fff" stroke="#c74634"/>
+      <text x="150" y="121" text-anchor="middle" font-size="10" fill="#1c2330">IGW</text>
+      <rect x="588" y="104" width="44" height="26" rx="4" fill="#fff" stroke="#c74634"/>
+      <text x="610" y="121" text-anchor="middle" font-size="10" fill="#1c2330">SGW</text>
+      <line x1="140" y1="104" x2="95" y2="56" stroke="#5b6577" marker-end="url(#arr)"/>
+      <line x1="620" y1="104" x2="665" y2="56" stroke="#5b6577" marker-end="url(#arr)"/>
+      <!-- subnets -->
+      <g font-size="9.5" fill="#1c2330">
+        <rect x="190" y="104" width="86" height="40" rx="4" fill="#fff" stroke="#d6dbe4"/><text x="233" y="120" text-anchor="middle">FW UNTRUST</text><text x="233" y="134" text-anchor="middle" fill="#5b6577">10.0.0.0/24</text>
+        <rect x="282" y="104" width="86" height="40" rx="4" fill="#fff" stroke="#d6dbe4"/><text x="325" y="120" text-anchor="middle">FW TRUST</text><text x="325" y="134" text-anchor="middle" fill="#5b6577">10.0.16.0/24</text>
+        <rect x="374" y="104" width="86" height="40" rx="4" fill="#fff" stroke="#d6dbe4"/><text x="417" y="120" text-anchor="middle">FW MGMT</text><text x="417" y="134" text-anchor="middle" fill="#5b6577">10.0.32.0/24</text>
+        <rect x="466" y="104" width="86" height="40" rx="4" fill="#fff" stroke="#d6dbe4"/><text x="509" y="120" text-anchor="middle">FW HA</text><text x="509" y="134" text-anchor="middle" fill="#5b6577">10.0.48.0/28</text>
+        <rect x="190" y="190" width="120" height="36" rx="4" fill="#fff" stroke="#d6dbe4"/><text x="250" y="205" text-anchor="middle">WAF</text><text x="250" y="219" text-anchor="middle" fill="#5b6577">10.0.64.0/24</text>
+        <rect x="320" y="190" width="120" height="36" rx="4" fill="#fff" stroke="#d6dbe4"/><text x="380" y="205" text-anchor="middle">DNS</text><text x="380" y="219" text-anchor="middle" fill="#5b6577">10.0.80.0/24</text>
+      </g>
+      <!-- NVA -->
+      <rect x="190" y="152" width="362" height="28" rx="5" fill="#c74634"/>
+      <text x="371" y="170" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">NVA (VyOS) · trust VIP 10.0.16.160</text>
+
+      <!-- DRG -->
+      <rect x="320" y="270" width="120" height="34" rx="6" fill="#22324d"/>
+      <text x="380" y="286" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">HUB_DRG</text>
+      <text x="380" y="299" text-anchor="middle" font-size="8.5" fill="#cfd6e3">DRG_SPOKE_RT · DRG_IPSEC_RT</text>
+      <line x1="380" y1="240" x2="380" y2="270" stroke="#22324d" stroke-width="2"/>
+
+      <!-- HQ -->
+      <rect x="20" y="270" width="140" height="40" rx="6" fill="#fff" stroke="#22324d" stroke-dasharray="4 3"/>
+      <text x="90" y="287" text-anchor="middle" font-size="11" fill="#1c2330">본사</text>
+      <text x="90" y="301" text-anchor="middle" font-size="9.5" fill="#5b6577">192.168.10.0/24</text>
+      <line x1="160" y1="290" x2="320" y2="288" stroke="#22324d" stroke-dasharray="4 3"/>
+      <text x="240" y="282" text-anchor="middle" font-size="9.5" fill="#22324d">IPSec VPN</text>
+
+      <!-- spokes -->
+      <g font-size="10" fill="#1c2330">
+        <line x1="380" y1="304" x2="86" y2="350" stroke="#5b6577"/>
+        <line x1="380" y1="304" x2="232" y2="350" stroke="#5b6577"/>
+        <line x1="380" y1="304" x2="380" y2="350" stroke="#5b6577"/>
+        <line x1="380" y1="304" x2="528" y2="350" stroke="#5b6577"/>
+        <line x1="380" y1="304" x2="674" y2="350" stroke="#5b6577"/>
+        <rect x="20" y="350" width="132" height="60" rx="6" fill="#eef3fb" stroke="#8aa4cf"/>
+        <text x="86" y="370" text-anchor="middle" font-weight="700">ec-prd</text><text x="86" y="385" text-anchor="middle" fill="#5b6577">10.1.0.0/16</text><text x="86" y="399" text-anchor="middle" fill="#5b6577" font-size="9">E-COMMERCE · 운영</text>
+        <rect x="166" y="350" width="132" height="60" rx="6" fill="#eef3fb" stroke="#8aa4cf"/>
+        <text x="232" y="370" text-anchor="middle" font-weight="700">ec-dev</text><text x="232" y="385" text-anchor="middle" fill="#5b6577">10.2.0.0/16</text><text x="232" y="399" text-anchor="middle" fill="#5b6577" font-size="9">E-COMMERCE · 비운영</text>
+        <rect x="314" y="350" width="132" height="60" rx="6" fill="#eef8f1" stroke="#7fb795"/>
+        <text x="380" y="370" text-anchor="middle" font-weight="700">mgmt</text><text x="380" y="385" text-anchor="middle" fill="#5b6577">10.3.0.0/16</text><text x="380" y="399" text-anchor="middle" fill="#5b6577" font-size="9">MGMT · 전 VCN 허용</text>
+        <rect x="462" y="350" width="132" height="60" rx="6" fill="#eef3fb" stroke="#8aa4cf"/>
+        <text x="528" y="370" text-anchor="middle" font-weight="700">erp-prd</text><text x="528" y="385" text-anchor="middle" fill="#5b6577">10.4.0.0/16</text><text x="528" y="399" text-anchor="middle" fill="#5b6577" font-size="9">ERP · 운영</text>
+        <rect x="608" y="350" width="132" height="60" rx="6" fill="#eef3fb" stroke="#8aa4cf"/>
+        <text x="674" y="370" text-anchor="middle" font-weight="700">erp-dev</text><text x="674" y="385" text-anchor="middle" fill="#5b6577">10.5.0.0/16</text><text x="674" y="399" text-anchor="middle" fill="#5b6577" font-size="9">ERP · 비운영</text>
+      </g>
+    </svg>
+    <figcaption>그림 1. 목표 구성도 (spoke 는 IGW 없이 기본 경로를 DRG 로 보내 hub 의 NVA 를 같이 쓰고, OCI 서비스는 spoke 마다 둔 SGW 로 나간다)</figcaption>
+  </figure>
+
+  <h3>2.3 설계값</h3>
+  <table>
+    <thead><tr><th>VCN (파일)</th><th>compartment</th><th>CIDR</th><th>subnet</th><th>구분</th></tr></thead>
+    <tr><td>hub</td><td>HUB</td><td>10.0.0.0/16</td><td>FW untrust · trust · mgmt · HA, WAF, DNS (6)</td><td>허브</td></tr>
+    <tr><td>ec-prd</td><td>E-COMMERCE</td><td>10.1.0.0/16</td><td>LB · WEB · ADMIN · CACHE · DB (5)</td><td>운영</td></tr>
+    <tr><td>ec-dev</td><td>E-COMMERCE</td><td>10.2.0.0/16</td><td>LB · WEB · ADMIN · CACHE · DB (5)</td><td>비운영</td></tr>
+    <tr><td>mgmt</td><td>MGMT</td><td>10.3.0.0/16</td><td>bastion · 모니터링 · CI · CD · DB 접근제어 · DB 암호화 (6)</td><td>관리</td></tr>
+    <tr><td>erp-prd</td><td>ERP</td><td>10.4.0.0/16</td><td>LB · WEB · ADMIN · CACHE · DB (5)</td><td>운영</td></tr>
+    <tr><td>erp-dev</td><td>ERP</td><td>10.5.0.0/16</td><td>LB · WEB · ADMIN · CACHE · DB (5)</td><td>비운영</td></tr>
+  </table>
+  <p>subnet 은 세 번째 옥텟을 16 단위(0/16/32/48 …)로 잡아, 운영 중에도 같은 시작 주소로 /20 까지 제자리 확장할 수 있게 한다. 위 값은 기준선의 현재 값이며, 수행사는 설계 검토 결과에 따라 변경을 제안할 수 있다.</p>
+
+  <h3>2.4 트래픽 흐름</h3>
+  <table>
+    <thead><tr><th>흐름</th><th>경로</th></tr></thead>
+    <tr><td class="name">spoke → 인터넷</td><td>spoke RT(0.0.0.0/0 → DRG) → DRG_SPOKE_RT → hub ingress RT → NVA trust(10.0.16.160) → NAT → NVA untrust → IGW. 외부에서 보이는 주소는 untrust 의 reserved public IP 하나다.</td></tr>
+    <tr><td class="name">spoke ↔ spoke</td><td>DRG → hub ingress RT(spoke 대역 → NVA) → NVA 방화벽(운영 ↔ 비운영 차단, mgmt 는 전체 허용) → trust RT → DRG → 대상 spoke</td></tr>
+    <tr><td class="name">spoke → OCI 서비스</td><td>spoke RT(all-services → 자기 SGW) → SGW. 0.0.0.0/0 보다 구체적이라 먼저 맞고, hub 와 NVA 를 거치지 않는다.</td></tr>
+    <tr><td class="name">본사 ↔ OCI</td><td>IPSec → DRG_IPSEC_RT(hub + spoke 대역 → hub attachment) → hub ingress RT → NVA</td></tr>
+    <tr><td class="name">DRG → WAF</td><td>hub ingress RT(10.0.64.0/24 → NVA) → WAF. 응답은 WAF RT(0.0.0.0/0 → NVA) 로 같은 길을 되돌아간다.</td></tr>
+  </table>
+</section>
+
+<!-- 3. 요구사항 -->
+<section class="page">
+  <h2>3. 제안 요청 내용 (요구사항)</h2>
+
+  <h3>3.1 요구사항 총괄표</h3>
+  <table>
+    <thead><tr><th>분류</th><th>ID</th><th>내용</th><th class="num">수</th></tr></thead>
+    <tr><td>시스템 장비 구성</td><td>ECR</td><td>리전, NVA 컴퓨트, state 저장소</td><td class="num">3</td></tr>
+    <tr><td>기능 (인프라)</td><td>SFR-0xx</td><td>Compartment, VCN, DRG, SGW, NVA, bucket, IPSec, WAF, 로그, DNS</td><td class="num">13</td></tr>
+    <tr><td>기능 (IaC · 자동화)</td><td>SFR-1xx</td><td>YAML 설계, stack, 사전 검증, spoke 확장, NVA 설정 자동화, 명령 체계</td><td class="num">6</td></tr>
+    <tr><td>성능</td><td>PER</td><td>MTU · PMTUD, NVA 확장성</td><td class="num">2</td></tr>
+    <tr><td>인터페이스</td><td>SIR</td><td>인터넷, 본사 망, OCI 서비스</td><td class="num">3</td></tr>
+    <tr><td>데이터</td><td>DAR</td><td>Terraform state, 로그</td><td class="num">2</td></tr>
+    <tr><td>테스트</td><td>TER</td><td>단위, 통합, 형상 일치</td><td class="num">3</td></tr>
+    <tr><td>보안</td><td>SER</td><td>IAM, 관리 접근, 비밀값, bucket, 변경 통제, 망 분리</td><td class="num">6</td></tr>
+    <tr><td>품질</td><td>QUR</td><td>코드, 변경 안전성, 문서</td><td class="num">3</td></tr>
+    <tr><td>제약사항</td><td>COR</td><td>도구 버전, 작업 범위, 기준선, 형상 규칙</td><td class="num">4</td></tr>
+    <tr><td>프로젝트 관리</td><td>PMR</td><td>수행계획, 진척, 위험, 형상</td><td class="num">4</td></tr>
+    <tr><td>프로젝트 지원</td><td>PSR</td><td>교육, 산출물 · 기술이전, 하자보수</td><td class="num">3</td></tr>
+    <tr><th colspan="3">합계</th><th class="num">52</th></tr>
+  </table>
+  <div class="note">제안사는 모든 요구사항 ID 에 대해 대응 방안을 제안서의 「요구사항 대응표」에 적는다. <span class="tag">신규</span> 표시는 기준선에 없어 새로 구축하는 항목이다.</div>
+
+  <h3>3.2 상세 요구사항</h3>
+
+<div class="req">
+  <h4>시스템 장비 구성 (ECR)</h4>
+  <table>
+    <thead><tr><th>ID</th><th>명칭</th><th>세부 내용</th></tr></thead>
+    <tr><td class="id">ECR-001</td><td class="name">리전 · 테넌시</td><td>서울 리전(ap-seoul-1)에 구축한다. Compartment 는 테넌시 홈 리전에서 만든다. 모든 리소스는 발주기관이 지정한 상위 compartment(<code>landing-zone</code>) 아래에만 만든다.</td></tr>
+    <tr><td class="id">ECR-002</td><td class="name">NVA 컴퓨트</td><td>VM.Standard.E5.Flex 4 OCPU · 16GB 이상, VNIC 4개(mgmt, untrust, trust, ha). 이미지는 발주기관이 승인한 VyOS 커스텀 이미지 또는 동등 이상의 NVA 를 쓴다. 동등 이상임은 제안서에서 기능 비교로 증명한다.</td></tr>
+    <tr><td class="id">ECR-003</td><td class="name">IaC state 저장소</td><td>Object Storage bucket 에 Versioning 을 켜고 stack 별로 state 를 나눈다. bucket 은 Terraform 밖에서 미리 만들고 접근 권한을 최소화한다.</td></tr>
+  </table>
+</div>
+
+<div class="req">
+  <h4>기능: 인프라 (SFR-0xx)</h4>
+  <table>
+    <thead><tr><th>ID</th><th>명칭</th><th>세부 내용</th></tr></thead>
+    <tr><td class="id">SFR-001</td><td class="name">Compartment</td><td>HUB, E-COMMERCE, ERP, MGMT 4개를 만들고 삭제 보호(<code>enable_delete = false</code>)를 건다. YAML 만 바꿔 compartment 하나 또는 여러 개 구성으로 전환할 수 있어야 한다.</td></tr>
+    <tr><td class="id">SFR-002</td><td class="name">Hub VCN</td><td>10.0.0.0/16, subnet 6개(FW untrust · trust · mgmt · HA, WAF, DNS), Internet Gateway 와 Service Gateway 각 1개, DRG attachment 와 ingress route table 을 둔다.</td></tr>
+    <tr><td class="id">SFR-003</td><td class="name">Spoke VCN</td><td>2.3 의 5개 spoke 를 만든다. spoke 에는 IGW 를 두지 않고 기본 경로를 DRG 로 보내며, OCI 서비스용 SGW 는 spoke 마다 둔다. 서비스 spoke 는 LB · WEB · ADMIN · CACHE · DB, mgmt 는 bastion · 모니터링 · CI · CD · DB 접근제어 · DB 암호화 subnet 을 둔다.</td></tr>
+    <tr><td class="id">SFR-004</td><td class="name">DRG · 라우팅</td><td>Hub DRG 1개와 사용자 정의 route table 2개를 둔다: DRG_SPOKE_RT(spoke attachment, 0.0.0.0/0 → hub), DRG_IPSEC_RT(본사 연결, hub + spoke 대역 → hub). spoke 대역은 별칭으로 적어 spoke 를 추가해도 고치지 않게 한다.</td></tr>
+    <tr><td class="id">SFR-005</td><td class="name">Service Gateway</td><td>OCI 서비스(OSN) 접근은 VCN 마다 둔 SGW 로 한다 (spoke 는 hub 를 거치지 않는다). OCI 가 요청의 VCN 을 구분하므로 IAM network source 로 VCN 별 버킷 접근을 제한할 수 있다.</td></tr>
+    <tr><td class="id">SFR-006</td><td class="name">NVA 구축</td><td>OS 부팅 후 secondary VNIC 을 정해진 순서로 하나씩 붙여 eth0 = mgmt, eth1 = untrust, eth2 = trust, eth3 = ha 를 보장하고, OS 에서는 MAC(hw-id)으로 이름을 고정한다. trust 에 VIP 10.0.16.160(secondary IP), untrust 에 reserved public IP 를 붙이고, untrust · trust 는 Skip source/destination check 를 켠다.</td></tr>
+    <tr><td class="id">SFR-007</td><td class="name">NVA 정책</td><td>인터넷 NAT(masquerade), zone 방화벽(MGMT · UNTRUST · TRUST · HA), 운영(VCN-PRD) ↔ 비운영(VCN-NONPRD) 차단, mgmt VCN 의 전 VCN 양방향 허용을 구성한다. 정적 경로 · NAT 대상 · 그룹은 VCN 설계값에서 자동으로 만든다.</td></tr>
+    <tr><td class="id">SFR-008</td><td class="name">NVA 경로 자동 전환</td><td>hub 에서 NVA 로 가는 route rule 은 NVA IP 가 있을 때만 들어가게 한다 (기준선의 <code>enabled: auto</code>). 가는 길과 오는 길 rule 이 함께 켜지고 함께 빠져야 한다. NVA 설정이 끝난 뒤에 hub 를 반영하는 절차를 문서화한다.</td></tr>
+    <tr><td class="id">SFR-009</td><td class="name">로그 bucket</td><td>bucket 7개(spoke 별 syslog 5, MGMT 감사 · 서비스 로그 2)를 hub stack 하나가 만든다. 접근 유형은 NoPublicAccess 다.</td></tr>
+    <tr><td class="id">SFR-010</td><td class="name">본사 IPSec VPN <span class="tag">신규</span></td><td>본사(192.168.10.0/24)와 OCI 를 Site-to-Site VPN 으로 연결하고 터널을 이중화한다. IPSec attachment 에 DRG_IPSEC_RT 를 지정하고, 본사 장비 설정 가이드를 낸다.</td></tr>
+    <tr><td class="id">SFR-011</td><td class="name">WAF <span class="tag">신규</span></td><td>HUB_WAF subnet 에 WAF(WAPPLES 또는 동등 이상)를 배치한다. DRG → WAF 와 WAF 응답이 모두 NVA 를 거치도록(대칭 경로) 구성하고 검증한다.</td></tr>
+    <tr><td class="id">SFR-012</td><td class="name">로그 수집 <span class="tag">신규</span></td><td>Service Connector Hub 로 VM syslog 와 감사 로그를 SFR-009 의 bucket 에 적재한다. 필요한 IAM policy(<code>serviceconnector</code> principal)를 함께 코드로 만든다.</td></tr>
+    <tr><td class="id">SFR-013</td><td class="name">DNS <span class="tag">신규</span></td><td>HUB_DNS subnet 에 DNS resolver endpoint 를 두고, 본사와 spoke 사이 이름 해석(포워딩 규칙)을 구성한다.</td></tr>
+  </table>
+</div>
+<div class="req">
+  <h4>기능: IaC · 자동화 (SFR-1xx)</h4>
+  <table>
+    <thead><tr><th>ID</th><th>명칭</th><th>세부 내용</th></tr></thead>
+    <tr><td class="id">SFR-101</td><td class="name">YAML 기반 설계 · 운영</td><td>CIDR, 이름, 규칙 같은 설계값은 모두 <code>config/</code> YAML 에 두고, Terraform 코드는 YAML 을 읽어 리소스를 만드는 범용 엔진으로 유지한다. 운영자는 YAML 만 고친다. 신규 구축 항목(SFR-010 ~ 013)도 같은 방식으로 만든다.</td></tr>
+    <tr><td class="id">SFR-102</td><td class="name">stack 분리</td><td>state 를 stack 별로 나누고, 뒤 stack 은 앞 stack 의 output 만 읽는다. 앞 stack 이 비어 있으면 Terraform 오류 대신 「make apply-iam 을 먼저 실행하세요」 같은 안내로 멈춘다. 신규 항목의 stack 배치와 의존 방향은 제안서에서 제시한다.</td></tr>
+    <tr><td class="id">SFR-103</td><td class="name">사전 검증</td><td>리소스를 만들기 전 plan 단계에서 YAML 오류를 한 번에 목록으로 보여 준다: 알 수 없는 키(오타), 참조(compartment · route table · NSG · gateway · DRG), subnet CIDR 범위, 게이트웨이 route table 의 target 제약, 이름 · destination 중복, dns_label · 포트 형식.</td></tr>
+    <tr><td class="id">SFR-104</td><td class="name">spoke 확장</td><td><code>config/vcns/&lt;이름&gt;.yaml</code> 하나를 추가하면 spoke stack, make target, hub · DRG 의 spoke 경로, NVA 의 경로 · NAT · 그룹이 모두 따라오게 한다. Makefile 이나 다른 YAML 은 고치지 않는다.</td></tr>
+    <tr><td class="id">SFR-105</td><td class="name">NVA 설정 자동화</td><td>NVA 설정을 템플릿으로 만들고 명령 하나(<code>make configure-nva</code>)로 적용한다. 다시 실행해도 결과가 같아야 하고(멱등), 설정에서 빠진 그룹 항목은 장비에서도 빠져야 한다. 접속 비밀번호는 저장소와 state 에 남기지 않는다.</td></tr>
+    <tr><td class="id">SFR-106</td><td class="name">명령 체계</td><td><code>make init · test · plan-&lt;stack&gt; · apply-&lt;stack&gt; · destroy-&lt;stack&gt; · apply-all · destroy-all · configure-nva</code> 를 제공한다. 일괄 적용과 삭제는 의존 순서(삭제는 역순)를 지킨다.</td></tr>
+  </table>
+</div>
+
+<div class="req">
+  <h4>성능 (PER)</h4>
+  <table>
+    <thead><tr><th>ID</th><th>명칭</th><th>세부 내용</th></tr></thead>
+    <tr><td class="id">PER-001</td><td class="name">MTU · PMTUD</td><td>VCN 내부와 DRG 구간은 MTU 9000, 인터넷 구간은 1500 으로 동작하고, NVA 가 크기 초과 알림(ICMP fragmentation needed)을 돌려줘 경로 MTU 탐색이 되게 한다. tracepath 결과로 증명한다.</td></tr>
+    <tr><td class="id">PER-002</td><td class="name">NVA 확장성</td><td>shape · OCPU 변경으로 수직 확장할 수 있어야 하고, HA subnet 을 쓰는 이중화 구성안(전환 방식, VIP 이동)을 제안한다.</td></tr>
+  </table>
+</div>
+
+<div class="req">
+  <h4>인터페이스 (SIR)</h4>
+  <table>
+    <thead><tr><th>ID</th><th>명칭</th><th>세부 내용</th></tr></thead>
+    <tr><td class="id">SIR-001</td><td class="name">인터넷</td><td>spoke 의 아웃바운드는 NVA NAT 를 거쳐 reserved public IP 하나로 나간다 (외부 기관 화이트리스트용 고정 IP).</td></tr>
+    <tr><td class="id">SIR-002</td><td class="name">본사 망</td><td>본사 192.168.10.0/24 와 IPSec 으로 연동한다 (SFR-010). 본사 쪽 경로 · 방화벽 요구사항을 문서로 낸다.</td></tr>
+    <tr><td class="id">SIR-003</td><td class="name">OCI 서비스</td><td>Object Storage 등 OCI 서비스는 SGW(all-services)로 접근하고 인터넷을 거치지 않는다.</td></tr>
+  </table>
+</div>
+
+<div class="req">
+  <h4>데이터 (DAR)</h4>
+  <table>
+    <thead><tr><th>ID</th><th>명칭</th><th>세부 내용</th></tr></thead>
+    <tr><td class="id">DAR-001</td><td class="name">Terraform state</td><td>state 는 Versioning bucket 에 stack 별 key 로 둔다. state 에 비밀값(비밀번호, 키)을 넣지 않는다. state 복구 절차(이전 버전 복원)를 문서화한다.</td></tr>
+    <tr><td class="id">DAR-002</td><td class="name">로그 데이터</td><td>로그 bucket 의 보존 기간과 삭제 정책을 발주기관 기준(<span class="ph">[보존 기간]</span>)에 맞춰 코드로 관리한다.</td></tr>
+  </table>
+</div>
+
+<div class="req">
+  <h4>테스트 (TER)</h4>
+  <table>
+    <thead><tr><th>ID</th><th>명칭</th><th>세부 내용</th></tr></thead>
+    <tr><td class="id">TER-001</td><td class="name">단위 테스트</td><td>OCI 자격증명 없이 도는 테스트(<code>terraform test</code>, mock provider)를 stack 마다 둔다. compartment, hub 구성, spoke 별 구성, NVA VNIC 순서와 설정 생성, NVA 경로 자동 전환, 잘못된 YAML 거부를 포함하고, 기준선의 테스트 20개를 유지하거나 늘린다. 신규 항목마다 테스트를 추가한다.</td></tr>
+    <tr><td class="id">TER-002</td><td class="name">통합 테스트</td><td>spoke 테스트 VM 으로 다음을 확인하고 결과서를 낸다: tracepath 의 2번째 hop 이 NVA trust 인지, 외부에서 보이는 IP 가 NVA reserved IP 인지, 운영 ↔ 비운영 차단, mgmt → 전 VCN 허용, 본사 ↔ spoke 통신, WAF 경로 대칭.</td></tr>
+    <tr><td class="id">TER-003</td><td class="name">형상 일치 점검</td><td>완료 시점에 모든 stack 의 plan 이 「No changes」여야 한다. 콘솔에서 바뀐 설정(drift)을 찾고 되돌리는 절차를 문서화한다.</td></tr>
+  </table>
+</div>
+<div class="req">
+  <h4>보안 (SER)</h4>
+  <table>
+    <thead><tr><th>ID</th><th>명칭</th><th>세부 내용</th></tr></thead>
+    <tr><td class="id">SER-001</td><td class="name">IAM 최소 권한</td><td>네트워크 관리자, compartment 별 운영자, 감사자 그룹과 동적 그룹(에이전트용 instance principal), policy 를 코드로 만든다. <code>use</code> 와 <code>manage</code> 를 구분해 필요한 만큼만 준다.</td></tr>
+    <tr><td class="id">SER-002</td><td class="name">관리 접근 통제</td><td>Default Security List 의 SSH 22 (0.0.0.0/0) 허용을 막고, 관리 SSH 는 본사 · bastion 대역에서만 허용한다. NVA 관리 인터페이스는 VRF 로 데이터 경로와 분리한다.</td></tr>
+    <tr><td class="id">SER-003</td><td class="name">비밀값 관리</td><td>NVA 비밀번호 같은 비밀값은 저장소 · state · 로그에 남기지 않는다 (git 에서 제외한 로컬 파일 또는 OCI Vault). 제안서에 보관 · 교체 방안을 적는다.</td></tr>
+    <tr><td class="id">SER-004</td><td class="name">Object Storage</td><td>모든 bucket 은 NoPublicAccess 로 만들고, 퍼블릭 접근이 필요한 경우는 승인 절차를 거친다.</td></tr>
+    <tr><td class="id">SER-005</td><td class="name">변경 통제</td><td>Terraform 이 만든 리소스(<code>ManagedBy=terraform</code> 태그)는 콘솔에서 고치지 않는다. 모든 변경은 코드 리뷰와 plan 확인을 거친다.</td></tr>
+    <tr><td class="id">SER-006</td><td class="name">망 분리</td><td>운영과 비운영 VCN 사이를 NVA 에서 차단한다. mgmt 의 전체 허용은 모니터링 · 접근제어 · DB 암호화 용도로 한정하고, OCI Security List · NSG 에서 필요한 포트만 연다.</td></tr>
+  </table>
+</div>
+
+<div class="req">
+  <h4>품질 (QUR)</h4>
+  <table>
+    <thead><tr><th>ID</th><th>명칭</th><th>세부 내용</th></tr></thead>
+    <tr><td class="id">QUR-001</td><td class="name">코드 품질</td><td><code>terraform fmt</code>, <code>validate</code>, 테스트 통과를 병합 조건으로 한다.</td></tr>
+    <tr><td class="id">QUR-002</td><td class="name">변경 안전성</td><td>apply 전 plan 의 destroy 수를 확인하는 절차를 정하고, 재생성되는 변경(subnet public · dns_label, VCN dns_label, YAML 키 이름, spoke 파일 이름 등)을 목록으로 문서화한다.</td></tr>
+    <tr><td class="id">QUR-003</td><td class="name">문서 품질</td><td>운영자가 문서만 보고 spoke 추가, NVA 재구축, 장애 대응을 할 수 있어야 한다. 예제와 명령을 그대로 실행할 수 있게 쓴다.</td></tr>
+  </table>
+</div>
+
+<div class="req">
+  <h4>제약사항 (COR)</h4>
+  <table>
+    <thead><tr><th>ID</th><th>명칭</th><th>세부 내용</th></tr></thead>
+    <tr><td class="id">COR-001</td><td class="name">도구 버전</td><td>Terraform 1.12 이상(native <code>oci</code> backend), oracle/oci provider 9.x 를 쓰고 <code>.terraform.lock.hcl</code> 로 버전을 고정한다.</td></tr>
+    <tr><td class="id">COR-002</td><td class="name">작업 범위 제한</td><td>지정한 상위 compartment 의 상위 · 형제 리소스는 만들거나 바꾸거나 지우지 않는다. 테넌시 단위 변경(policy 등)은 사전 승인을 받는다.</td></tr>
+    <tr><td class="id">COR-003</td><td class="name">기준선 준수</td><td>제공하는 IaC 기준선의 구조(stack, YAML 스키마, 검증 방식)와 규칙을 따른다. 구조를 바꿀 때는 이유와 이관 방안을 제시하고 승인을 받는다.</td></tr>
+    <tr><td class="id">COR-004</td><td class="name">형상 규칙</td><td>git 으로 관리하고, 커밋 메시지는 발주기관 규칙(Conventional Commits + gitmoji, 한국어 요약)을 따른다.</td></tr>
+  </table>
+</div>
+
+<div class="req">
+  <h4>프로젝트 관리 (PMR)</h4>
+  <table>
+    <thead><tr><th>ID</th><th>명칭</th><th>세부 내용</th></tr></thead>
+    <tr><td class="id">PMR-001</td><td class="name">사업수행계획서</td><td>착수 후 <span class="ph">[10]</span>일 안에 일정, 조직, 산출물, 위험 관리 계획을 담은 수행계획서를 낸다.</td></tr>
+    <tr><td class="id">PMR-002</td><td class="name">진척 관리</td><td>주간 보고와 단계별(설계 · 구축 · 테스트 · 이관) 검토 회의를 연다.</td></tr>
+    <tr><td class="id">PMR-003</td><td class="name">위험 · 이슈 관리</td><td>운영 중인 리소스에 영향을 주는 변경은 위험으로 등록하고, 작업 계획과 원복 방안을 미리 승인받는다.</td></tr>
+    <tr><td class="id">PMR-004</td><td class="name">형상 · 변경 관리</td><td>브랜치와 Pull Request 로 작업하고, 리뷰 기록을 남긴다.</td></tr>
+  </table>
+</div>
+
+<div class="req">
+  <h4>프로젝트 지원 (PSR)</h4>
+  <table>
+    <thead><tr><th>ID</th><th>명칭</th><th>세부 내용</th></tr></thead>
+    <tr><td class="id">PSR-001</td><td class="name">교육</td><td>운영자 대상으로 YAML 운영, stack 순서, 테스트, NVA 운영, 장애 대응 교육을 <span class="ph">[N]</span>회 이상 한다.</td></tr>
+    <tr><td class="id">PSR-002</td><td class="name">산출물 · 기술이전</td><td>아키텍처 정의서, IaC 코드, 운영 문서(README · runbook), 테스트 결과서, 본사 VPN 설정 가이드를 낸다. 산출물의 저작권 · 사용권은 발주기관에 귀속한다.</td></tr>
+    <tr><td class="id">PSR-003</td><td class="name">하자보수</td><td>최종 검수 후 12개월간 하자를 무상으로 보수하고, 장애 접수 후 <span class="ph">[4]</span>시간 안에 대응을 시작한다.</td></tr>
+  </table>
+</div>
+</section>
+
+<!-- 4. 제안서 작성 요령 -->
+<section class="page">
+  <h2>4. 제안서 작성 요령</h2>
+  <p>제안서는 아래 목차를 따른다. A4 세로, 본문 100쪽 이내(요구사항 대응표 · 부록 제외)로 쓴다.</p>
+  <table>
+    <thead><tr><th>장</th><th>내용</th></tr></thead>
+    <tr><td class="name">Ⅰ. 제안 개요</td><td>사업 이해, 추진 전략, 제안의 특징과 차별점</td></tr>
+    <tr><td class="name">Ⅱ. 제안사 일반</td><td>회사 현황, 수행 조직, OCI · IaC 유사 실적 (최근 3년)</td></tr>
+    <tr><td class="name">Ⅲ. 기술 부문</td><td>목표 아키텍처와 설계 근거, 요구사항별 대응 방안(요구사항 ID 기준), IaC 설계(stack, YAML 스키마 확장, 검증), 보안, 테스트 방안</td></tr>
+    <tr><td class="name">Ⅳ. 사업 관리</td><td>일정, 투입 인력, 품질 · 위험 · 형상 관리</td></tr>
+    <tr><td class="name">Ⅴ. 지원 부문</td><td>교육, 기술이전, 하자보수</td></tr>
+    <tr><td class="name">별첨</td><td>요구사항 대응표 (ID, 수용 여부, 대응 방안, 제안서 쪽수)</td></tr>
+  </table>
+  <div class="note">기술 부문은 기준선과 무엇이 같고 무엇을 바꾸는지 구분해 쓴다. 기준선을 바꾸는 제안은 이유, 영향 받는 stack, 기존 state 이관 방안을 함께 적는다.</div>
+
+  <!-- 5. 평가 -->
+  <h2 style="margin-top:28px">5. 제안서 평가</h2>
+  <p>기술 평가(90점)와 가격 평가(10점)를 합산한다. 기술 평가 점수가 배점의 85% 미만이면 협상 대상에서 제외한다.</p>
+  <table>
+    <thead><tr><th>평가 항목</th><th>평가 내용</th><th class="num">배점</th></tr></thead>
+    <tr><td class="name">사업 이해 · 추진 전략</td><td>배경 · 목적 이해, 범위의 타당성</td><td class="num">10</td></tr>
+    <tr><td class="name">목표 아키텍처 · 네트워크</td><td>Hub &amp; Spoke 경로 설계, NVA · WAF · IPSec · DNS 구성의 적정성, 대칭 경로와 확장성</td><td class="num">20</td></tr>
+    <tr><td class="name">IaC · 자동화</td><td>기준선 활용, YAML 스키마 확장, 사전 검증, spoke 확장 자동화, NVA 설정 자동화</td><td class="num">20</td></tr>
+    <tr><td class="name">보안</td><td>IAM 최소 권한, 관리 접근 통제, 비밀값 관리, 망 분리</td><td class="num">10</td></tr>
+    <tr><td class="name">테스트 · 품질</td><td>단위 · 통합 테스트 범위, 형상 일치 점검, 변경 안전성</td><td class="num">10</td></tr>
+    <tr><td class="name">사업 관리</td><td>일정 · 인력의 적정성, 위험 관리, 유사 실적</td><td class="num">10</td></tr>
+    <tr><td class="name">교육 · 기술이전 · 유지보수</td><td>교육 계획, 산출물 수준, 하자보수 체계</td><td class="num">10</td></tr>
+    <tr><th colspan="2">기술 평가 합계</th><th class="num">90</th></tr>
+    <tr><td class="name">가격 평가</td><td>「협상에 의한 계약 제안서평가 세부기준」에 따른 산식</td><td class="num">10</td></tr>
+    <tr><th colspan="2">총점</th><th class="num">100</th></tr>
+  </table>
+</section>
+
+<!-- 6. 제출 안내 -->
+<section class="page">
+  <h2>6. 제출 안내</h2>
+  <h3>6.1 일정</h3>
+  <table>
+    <thead><tr><th>절차</th><th>일시</th><th>비고</th></tr></thead>
+    <tr><td>입찰 공고</td><td><span class="ph">[YYYY.MM.DD]</span></td><td>나라장터</td></tr>
+    <tr><td>사업 설명회</td><td><span class="ph">[YYYY.MM.DD HH:MM]</span></td><td><span class="ph">[장소 · 온라인]</span>, 참석 희망사는 사전 신청</td></tr>
+    <tr><td>질의 접수 마감</td><td><span class="ph">[YYYY.MM.DD]</span></td><td>서면(전자우편)으로만 받는다</td></tr>
+    <tr><td>제안서 제출 마감</td><td><span class="ph">[YYYY.MM.DD HH:MM]</span></td><td>마감 후 제출분은 받지 않는다</td></tr>
+    <tr><td>제안 발표 평가</td><td><span class="ph">[YYYY.MM.DD]</span></td><td>발표 20분, 질의응답 20분</td></tr>
+    <tr><td>우선협상대상자 선정</td><td><span class="ph">[YYYY.MM.DD]</span></td><td>개별 통보</td></tr>
+  </table>
+
+  <h3>6.2 제출 서류</h3>
+  <ul>
+    <li>제안서 원본 1부, 사본 <span class="ph">[N]</span>부, 전자 파일(PDF) 1부</li>
+    <li>요약 제안서(20쪽 이내) 및 발표 자료</li>
+    <li>요구사항 대응표, 가격 제안서(별도 밀봉)</li>
+    <li>입찰 참가 자격 증빙 서류 (사업자등록증, 소프트웨어사업자 신고 확인서 등)</li>
+  </ul>
+
+  <h3>6.3 유의사항</h3>
+  <ul>
+    <li>제안서 내용은 계약서의 일부가 되며, 사실과 다르면 계약을 해지할 수 있다.</li>
+    <li>기준선 저장소, 설계값, 계정 정보 등 발주기관이 제공한 자료는 본 사업에만 쓰고 사업 종료 후 반납 · 파기한다.</li>
+    <li>제안 준비에 드는 비용은 제안사가 부담한다.</li>
+  </ul>
+
+  <h3>6.4 문의처</h3>
+  <table class="kv">
+    <tr><th>담당 부서</th><td><span class="ph">[부서명]</span></td></tr>
+    <tr><th>담당자</th><td><span class="ph">[이름]</span> (<span class="ph">[전화]</span>, <span class="ph">[전자우편]</span>)</td></tr>
+  </table>
+
+</section>
+
+<!-- 부록 -->
+<section class="page">
+  <h2>부록. 용어 정리</h2>
+  <table>
+    <thead><tr><th>용어</th><th>설명</th></tr></thead>
+    <tr><td class="name">Hub &amp; Spoke</td><td>공용 기능(방화벽, 게이트웨이)을 허브 VCN 에 모으고, 서비스 VCN(spoke)은 DRG 로 허브에 붙이는 구조</td></tr>
+    <tr><td class="name">DRG</td><td>Dynamic Routing Gateway. VCN 끼리, 그리고 본사 망과 OCI 를 잇는 라우터</td></tr>
+    <tr><td class="name">SGW</td><td>Service Gateway. 인터넷을 거치지 않고 OCI 서비스(OSN)에 접근하는 게이트웨이</td></tr>
+    <tr><td class="name">NVA</td><td>Network Virtual Appliance. VM 으로 동작하는 방화벽 · 라우터 (본 사업은 VyOS)</td></tr>
+    <tr><td class="name">VNIC · VIP</td><td>인스턴스의 가상 네트워크 카드 · 경로의 목적지로 쓰는 secondary private IP</td></tr>
+    <tr><td class="name">IaC</td><td>Infrastructure as Code. 인프라를 코드로 정의하고 같은 결과를 반복해서 만드는 방식</td></tr>
+    <tr><td class="name">state · workspace</td><td>Terraform 이 만든 리소스를 기록한 파일 · 같은 코드로 state 를 나눠 쓰는 단위</td></tr>
+    <tr><td class="name">PMTUD</td><td>Path MTU Discovery. 경로에서 가장 작은 MTU 를 찾아 패킷 크기를 맞추는 동작</td></tr>
+  </table>
+</section>
+
+</body>
+</html>
