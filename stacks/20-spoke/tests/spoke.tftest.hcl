@@ -1,7 +1,16 @@
 # OCI 자격증명 없이 도는 테스트:  terraform init -backend=false && terraform test   (또는 make test)
 #   test 는 default workspace 에서 돌기 때문에 var.vcn 으로 VCN 파일을 고른다.
 
-mock_provider "oci" {}
+mock_provider "oci" {
+  # SGW 의 all-services 를 service id · CIDR label 로 바꾸는 데 쓴다
+  mock_data "oci_core_services" {
+    defaults = {
+      services = [
+        { id = "ocid1.service.oc1.ap-seoul-1.mockall", name = "All ICN Services In Oracle Services Network", cidr_block = "all-icn-services-in-oracle-services-network", description = "mock" }
+      ]
+    }
+  }
+}
 
 override_data {
   target = data.terraform_remote_state.iam
@@ -48,6 +57,10 @@ run "ec_prd_applies" {
     error_message = "ec-prd 는 attachment 1 이어야 합니다."
   }
   assert {
+    condition     = keys(output.gateway_ids) == ["EC_PRD_SGW"] && contains(output.rule_destinations.vcn["EC_PRD_RT"], "all-icn-services-in-oracle-services-network")
+    error_message = "ec-prd 는 자기 SGW(EC_PRD_SGW) 하나를 갖고, EC_PRD_RT 가 OCI 서비스를 그 SGW 로 보내야 합니다."
+  }
+  assert {
     condition     = length(output.nsg_ids) == 3
     error_message = "ec-prd 는 NSG 3(HQ_SSH/MYSQL_DB/CACHE) 이어야 합니다."
   }
@@ -67,6 +80,10 @@ run "ec_dev_applies" {
   assert {
     condition     = length(output.drg_attachment_ids) == 1
     error_message = "ec-dev 는 attachment 1 이어야 합니다."
+  }
+  assert {
+    condition     = keys(output.gateway_ids) == ["EC_DEV_SGW"] && contains(output.rule_destinations.vcn["EC_DEV_RT"], "all-icn-services-in-oracle-services-network")
+    error_message = "ec-dev 는 자기 SGW(EC_DEV_SGW) 하나를 갖고, EC_DEV_RT 가 OCI 서비스를 그 SGW 로 보내야 합니다."
   }
   assert {
     condition     = length(output.nsg_ids) == 3
@@ -90,6 +107,10 @@ run "erp_prd_applies" {
     error_message = "erp-prd 는 attachment 1 이어야 합니다."
   }
   assert {
+    condition     = keys(output.gateway_ids) == ["ERP_PRD_SGW"] && contains(output.rule_destinations.vcn["ERP_PRD_RT"], "all-icn-services-in-oracle-services-network")
+    error_message = "erp-prd 는 자기 SGW(ERP_PRD_SGW) 하나를 갖고, ERP_PRD_RT 가 OCI 서비스를 그 SGW 로 보내야 합니다."
+  }
+  assert {
     condition     = length(output.nsg_ids) == 3
     error_message = "erp-prd 는 NSG 3(HQ_SSH/MYSQL_DB/CACHE) 이어야 합니다."
   }
@@ -111,6 +132,10 @@ run "erp_dev_applies" {
     error_message = "erp-dev 는 attachment 1 이어야 합니다."
   }
   assert {
+    condition     = keys(output.gateway_ids) == ["ERP_DEV_SGW"] && contains(output.rule_destinations.vcn["ERP_DEV_RT"], "all-icn-services-in-oracle-services-network")
+    error_message = "erp-dev 는 자기 SGW(ERP_DEV_SGW) 하나를 갖고, ERP_DEV_RT 가 OCI 서비스를 그 SGW 로 보내야 합니다."
+  }
+  assert {
     condition     = length(output.nsg_ids) == 3
     error_message = "erp-dev 는 NSG 3(HQ_SSH/MYSQL_DB/CACHE) 이어야 합니다."
   }
@@ -130,6 +155,10 @@ run "mgmt_applies" {
   assert {
     condition     = length(output.drg_attachment_ids) == 1
     error_message = "MGMT 는 attachment 1 이어야 합니다."
+  }
+  assert {
+    condition     = keys(output.gateway_ids) == ["MGMT_SGW"] && contains(output.rule_destinations.vcn["MGMT_RT"], "all-icn-services-in-oracle-services-network")
+    error_message = "MGMT 는 자기 SGW(MGMT_SGW) 하나를 갖고, MGMT_RT 가 OCI 서비스를 그 SGW 로 보내야 합니다."
   }
   assert {
     condition     = length(output.nsg_ids) == 5

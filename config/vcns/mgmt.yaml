@@ -6,6 +6,10 @@ MGMT_VCN:
 #  internet_gateways:
 #    MGMT_IGW: {}
 
+  service_gateways:
+    MGMT_SGW:
+      services: all-services
+
   drg_attachment:
     name: MGMT_DRG_ATT
     drg: HUB_DRG
@@ -14,9 +18,12 @@ MGMT_VCN:
   route_tables:
     MGMT_RT:
       rules:
+        - destination: all-services
+          target: sgw:MGMT_SGW
+          description: "OCI 서비스 → 자기 SGW (hub 를 거치지 않음)"
         - destination: 0.0.0.0/0
           target: drg:HUB_DRG
-          description: "인터넷/OCI 서비스 → HUB"
+          description: "인터넷 → HUB"
           enabled: true
     MGMT_BASTION_PUB_RT:
       rules:

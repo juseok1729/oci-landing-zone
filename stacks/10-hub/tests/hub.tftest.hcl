@@ -48,8 +48,8 @@ run "design_config_applies" {
     error_message = "HUB subnet 은 6개여야 합니다."
   }
   assert {
-    condition     = length(output.route_table_ids) == 7
-    error_message = "HUB route table 은 7개(subnet 용 5 + SGW 1 + DRG attachment 1)여야 합니다."
+    condition     = length(output.route_table_ids) == 7 && length(output.rule_destinations.vcn["HUB_SGW_RT"]) == 0
+    error_message = "HUB route table 은 7개(subnet 용 5 + SGW 1 + DRG attachment 1)여야 하고, HUB_SGW_RT 는 rule 이 없어야 합니다 (OCI 는 SGW 의 route table 을 떼지 못하게 해서 비워 둔다)."
   }
   assert {
     condition     = length(output.drg_attachment_ids) == 1 && length(output.drg_ids) == 1

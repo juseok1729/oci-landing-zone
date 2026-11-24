@@ -28,15 +28,15 @@ HUB_VCN:
   # 게이트웨이에 붙는 route table 은 그 게이트웨이 아래에 적는다 (subnet 용은 route_tables:).
   #   SGW 용 RT       → target: drg: / privateip: 만 가능 (OCI 제약)
   #   DRG attachment  → target: sgw: / privateip: 만 가능 (OCI 제약)
+  # HUB_SGW 는 hub 안의 리소스(NVA · WAF · DNS)용이다. spoke 는 각자 SGW 로 OCI 서비스에 나간다
+  # (IAM network source 가 spoke VCN 을 구분할 수 있고, hub 경로 장애가 spoke 의 OCI 서비스 접근으로 번지지 않는다).
   service_gateways:
     HUB_SGW:
       services: all-services
-      route_table:                       # OSN 응답 → spoke
+      # OCI 는 SGW 에 한 번 붙인 route table 을 떼지 못한다 (다른 테이블로 바꾸기만 된다). 그래서 지우지 않고 rule 만 비웠다.
+      # 본사 → OCI 서비스 transit 이 필요해지면 여기에 rule(본사 대역 → drg:HUB_DRG)을 넣는다.
+      route_table:
         name: HUB_SGW_RT
-        rules:
-          - destination: spokes
-            target: drg:HUB_DRG
-            description: "OCI 서비스 응답 → spoke VCN"
 
   drg_attachment:
     name: HUB_DRG_ATT
@@ -45,10 +45,6 @@ HUB_VCN:
     route_table:                         # Hub Attachment Transit RT (spoke → HUB 진입 시 적용)
       name: HUB_INGRESS_RT
       rules:
-        - destination: all-services
-          target: sgw:HUB_SGW
-          description: "Hub Attachment Transit RT"
-
         # DRG_SPOKE_RT 가 spoke 트래픽(0.0.0.0/0)을 전부 HUB로 보내는데,
         # 이 테이블에 FortiGate 로 넘기는 rule 이 없으면 spoke→인터넷,
         # spoke↔spoke(PRD↔MGMT 등) 트래픽은 HUB에서 버려짐.
@@ -164,7 +160,8 @@ HUB_VCN:
       #  - { source: 0.0.0.0/0, protocol: udp, port: "500", description: "FortiGate IKE" }
     HUB_FW_TRUST_SL:
       ingress:
-        - { source: 10.0.0.0/14, description: "스포크 간 트래픽과 스포크→외부 트래픽 통과용. 실제 제어는 FortiGate 정책에서" }
+        # /13 = 10.0.0.0-10.7.255.255 (hub + spoke 10.1 ~ 10.7). 그 밖의 대역으로 spoke 를 만들면 여기도 넓힌다
+        - { source: 10.0.0.0/13, description: "스포크 간 트래픽과 스포크→외부 트래픽 통과용. 실제 제어는 FortiGate 정책에서" }
         - { source: 192.168.10.0/24, description: "HQ 트래픽 유입" }
 
   # NSG

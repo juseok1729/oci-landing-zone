@@ -3,6 +3,10 @@ ERP_PRD_VCN:
   cidrs: [10.4.0.0/16]
   dns_label: erpprd
 
+  service_gateways:
+    ERP_PRD_SGW:
+      services: all-services
+
   drg_attachment:
     name: ERP_PRD_DRG_ATT
     drg: HUB_DRG
@@ -11,9 +15,12 @@ ERP_PRD_VCN:
   route_tables:
     ERP_PRD_RT:
       rules:
+        - destination: all-services
+          target: sgw:ERP_PRD_SGW
+          description: "OCI 서비스 → 자기 SGW (hub 를 거치지 않음)"
         - destination: 0.0.0.0/0
           target: drg:HUB_DRG
-          description: "인터넷/OCI 서비스 → HUB"
+          description: "인터넷 → HUB"
           enabled: true
 
   subnets:
