@@ -17,6 +17,7 @@ locals {
   drg_raw          = fileexists("${local.dir}/drg.yaml") ? yamldecode(file("${local.dir}/drg.yaml")) : null
   buckets_raw      = fileexists("${local.dir}/buckets.yaml") ? yamldecode(file("${local.dir}/buckets.yaml")) : null
   nvas_raw         = fileexists("${local.dir}/nvas.yaml") ? yamldecode(file("${local.dir}/nvas.yaml")) : null
+  mon_raw          = fileexists("${local.dir}/mon.yaml") ? yamldecode(file("${local.dir}/mon.yaml")) : null
 
   # config/vcns/<이름>.yaml → { "<이름>" = { VCN_NAME = {...} } }   (파일 1개 = VCN 1개 = stack 1개)
   vcn_files = {
@@ -38,6 +39,8 @@ locals {
     nvas_file         = ["nvas"]
     nva               = ["compartment", "display_name", "image", "shape", "ocpus", "memory_gb", "availability_domain", "vnics"]
     nva_vnic          = ["name", "subnet", "private_ip", "secondary_ips", "skip_source_dest_check", "public_ip"]
+    mon_file          = ["mon"]
+    mon               = ["compartment", "subnet", "private_ip", "shape", "ocpus", "memory_gb", "availability_domain", "ssh_key_file", "grafana_from", "bastion_from"]
     vcn               = ["compartment", "display_name", "cidrs", "dns_label", "lock_default_security_list", "internet_gateways", "service_gateways", "drg_attachment", "route_tables", "security_lists", "network_security_groups", "subnets"]
     igw               = ["display_name", "compartment", "enabled"]
     sgw               = ["display_name", "compartment", "services", "route_table"]
@@ -86,6 +89,11 @@ locals {
       )
     ])
   )
+
+  checks_mon = [
+    { where = "mon.yaml", obj = local.mon_raw, kind = "mon_file" },
+    { where = "mon.yaml > mon", obj = try(local.mon_raw.mon, null), kind = "mon" },
+  ]
 
   checks_vcns = {
     for f, doc in local.vcn_files : f => flatten([
@@ -158,6 +166,10 @@ output "nvas" {
   value = try(local.nvas_raw.nvas, null)
 }
 
+output "mon" {
+  value = try(local.mon_raw.mon, null)
+}
+
 output "vcn_files" {
   description = "파일 이름(확장자 제외) → 그 파일의 VCN"
   value       = local.vcn_files
@@ -170,6 +182,7 @@ output "errors" {
     drg          = flatten([for c in local.checks_drg : [for k in try(keys(c.obj), []) : "${c.where}: 알 수 없는 키 '${k}'" if !contains(local.allowed[c.kind], k)]])
     buckets      = flatten([for c in local.checks_buckets : [for k in try(keys(c.obj), []) : "${c.where}: 알 수 없는 키 '${k}'" if !contains(local.allowed[c.kind], k)]])
     nvas         = flatten([for c in local.checks_nvas : [for k in try(keys(c.obj), []) : "${c.where}: 알 수 없는 키 '${k}'" if !contains(local.allowed[c.kind], k)]])
+    mon          = flatten([for c in local.checks_mon : [for k in try(keys(c.obj), []) : "${c.where}: 알 수 없는 키 '${k}'" if !contains(local.allowed[c.kind], k)]])
     vcns         = { for f, cs in local.checks_vcns : f => flatten([for c in cs : [for k in try(keys(c.obj), []) : "${c.where}: 알 수 없는 키 '${k}'" if !contains(local.allowed[c.kind], k)]]) }
     cross        = local.errors_cross
   }

@@ -1,0 +1,30 @@
+#cloud-config
+# stacks/40-mon 이 만든 모니터링 VM 설정. 첫 부팅에만 돈다 (바꾸면 make apply-mon 이 VM 을 다시 만든다).
+# 패키지는 SGW(OCI yum), 컨테이너 이미지는 NVA 를 거쳐 인터넷에서 받는다.
+packages: [podman]
+
+write_files:
+  - path: /etc/prometheus/prometheus.yml
+    content: |
+      global:
+        scrape_interval: 15s
+      scrape_configs:
+        - job_name: vyos
+          static_configs:
+            - targets: ${jsonencode(targets)}
+  - path: /etc/grafana/provisioning/datasources/prometheus.yaml
+    content: |
+      apiVersion: 1
+      datasources:
+        - name: Prometheus
+          type: prometheus
+          url: http://localhost:9090
+          isDefault: true
+
+runcmd:
+  - firewall-cmd --permanent --add-port=3000/tcp
+  - firewall-cmd --reload
+  # --restart=always 컨테이너를 재부팅 뒤에 다시 띄운다
+  - systemctl enable podman-restart.service
+  - podman run -d --name prometheus --restart=always --network host -v /etc/prometheus:/etc/prometheus:Z,ro -v prometheus:/prometheus quay.io/prometheus/prometheus:v3.5.0
+  - podman run -d --name grafana --restart=always --network host -v /etc/grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:Z,ro -v grafana:/var/lib/grafana docker.io/grafana/grafana:12.1.0

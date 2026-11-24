@@ -1,0 +1,8 @@
+mon:
+  compartment: TEST_COMP
+  subnet: NO_SUCH_SBN
+  shpae: VM.Standard.E5.Flex
+  ocpus: 1
+  memory_gb: 8
+  ssh_key_file: ~/.ssh/none.pub
+  bastion_from: [0.0.0.0/0]
