@@ -37,38 +37,38 @@
 > [!IMPORTANT]
 > 팀원은 `config/` 아래 YAML 만 수정한다. `modules/`, `stacks/` 는 관리자(owner)만 손댄다.
 
-```
+```sh
 oci-landing-zone/
-├── config/                 ← 일상 변경은 여기만
+├── config/                 # ← 일상 변경은 여기만
 │   ├── compartments.yaml
-│   ├── drg.yaml            DRG, DRG route table
+│   ├── drg.yaml            # DRG, DRG route table
 │   ├── buckets.yaml
-│   ├── nvas.yaml           NVA(VyOS) 인스턴스, VNIC
-│   ├── mon.yaml            모니터링 VM (Prometheus, Grafana)
+│   ├── nvas.yaml           # NVA(VyOS) 인스턴스, VNIC
+│   ├── mon.yaml            # 모니터링 VM (Prometheus, Grafana)
 │   └── vcns/
-│       ├── hub.yaml        VCN 1개 = 파일 1개 = stack 1개
-│       ├── ec-prd.yaml     hub 외 파일은 전부 spoke (파일 이름 = workspace 이름 = make target)
+│       ├── hub.yaml        # VCN 1개 = 파일 1개 = stack 1개
+│       ├── ec-prd.yaml     # hub 외 파일은 전부 spoke (파일 이름 = workspace 이름 = make target)
 │       ├── ec-dev.yaml
 │       ├── erp-prd.yaml
 │       ├── erp-dev.yaml
 │       └── mgmt.yaml
-├── stacks/                 state 를 나눈 실행 단위 (얇은 루트 모듈)
-│   ├── 00-iam/             compartment            (홈 리전)        state: lz/iam.tfstate
-│   ├── 10-hub/             DRG, HUB_VCN, bucket 전부               state: lz/hub.tfstate
-│   ├── 20-spoke/           spoke VCN              (workspace 별)   state: tf-state-env/<spoke 이름>/lz/spoke.tfstate
-│   ├── 30-nva/             NVA 인스턴스, VNIC, reserved IP            state: lz/nva.tfstate
-│   │   ├── vyos.sh.tftpl   VyOS 설정 템플릿 (make configure-nva)
-│   │   ├── configure.sh    SSH 로 설정 적용
-│   │   └── vnic/           secondary VNIC 을 순서대로 붙이는 module
-│   └── 40-mon/             모니터링 VM, NSG, OCI Bastion            state: lz/mon.tfstate
-│       └── cloud-init.yaml.tftpl  Prometheus, Grafana 컨테이너
+├── stacks/                 # state 를 나눈 실행 단위 (얇은 루트 모듈)
+│   ├── 00-iam/             # compartment (홈 리전)                   state: lz/iam.tfstate
+│   ├── 10-hub/             # DRG, HUB_VCN, bucket 전부               state: lz/hub.tfstate
+│   ├── 20-spoke/           # spoke VCN (workspace 별)                state: tf-state-env/<spoke 이름>/lz/spoke.tfstate
+│   ├── 30-nva/             # NVA 인스턴스, VNIC, reserved IP         state: lz/nva.tfstate
+│   │   ├── vyos.sh.tftpl   # VyOS 설정 템플릿 (make configure-nva)
+│   │   ├── configure.sh    # SSH 로 설정 적용
+│   │   └── vnic/           # secondary VNIC 을 순서대로 붙이는 module
+│   └── 40-mon/             # 모니터링 VM, NSG, OCI Bastion           state: lz/mon.tfstate
+│       └── cloud-init.yaml.tftpl     # Prometheus, Grafana 컨테이너
 ├── modules/
-│   ├── config/             YAML 읽기 + 알 수 없는 키(오타) 검사
+│   ├── config/             # YAML 읽기 + 알 수 없는 키(오타) 검사
 │   ├── compartments/
-│   ├── network/            VCN, Gateway, DRG, Route table, Security list, NSG, Subnet
+│   ├── network/            # VCN, Gateway, DRG, Route table, Security list, NSG, Subnet
 │   └── buckets/
-├── tests/fixtures/         테스트용 YAML
-├── .env.local              NVA_PASS (git 에 올리지 않음)
+├── tests/fixtures/         # 테스트용 YAML
+├── .env.local              # NVA_PASS (git 에 올리지 않음)
 └── Makefile
 ```
 
@@ -188,20 +188,20 @@ make test        # stack 마다 terraform init -backend=false && terraform test
   route_tables:
     HUB_APP_PRI_RT:
       rules:
-        - destination: 192.168.10.0/24                          # 대상 1개 → destination
+        - destination: 192.168.10.0/24                # 대상 1개 → destination
           target: drg:HUB_DRG
           description: "HQ VPN"
-        - destinations: [10.1.0.0/16, 10.2.0.0/16]             # 대상 여러 개 → destinations (같은 target)
+        - destinations: [10.1.0.0/16, 10.2.0.0/16]    # 대상 여러 개 → destinations (같은 target)
           target: drg:HUB_DRG
           description: "ec-prd, ec-dev VCN"
-        - destination: spokes                                   # spoke VCN CIDR 전체 (config/vcns 의 hub 외 파일)
+        - destination: spokes                         # spoke VCN CIDR 전체 (config/vcns 의 hub 외 파일)
           target: drg:HUB_DRG
           description: "spoke VCN"
-        - destination: all-services                             # OCI 서비스 전체(OSN) → SGW. SGW services 와 같아야 함
+        - destination: all-services                   # OCI 서비스 전체(OSN) → SGW. SGW services 와 같아야 함
           target: sgw:HUB_SGW
-        - destination: 0.0.0.0/0                                # NVA VIP 로
+        - destination: 0.0.0.0/0                      # NVA VIP 로
           target: privateip:10.0.16.160
-          enabled: auto                                         # IP 가 있을 때만 켜짐. false = 끄기 (i.e., 지우지 않고 보관)
+          enabled: auto                               # IP 가 있을 때만 켜짐. false = 끄기 (i.e., 지우지 않고 보관)
     HUB_EDGE_PUB_RT:
       rules:
         - destination: 0.0.0.0/0
@@ -217,22 +217,22 @@ make test        # stack 마다 terraform init -backend=false && terraform test
 ```yaml
 # config/vcns/hub.yaml
   internet_gateways:
-    HUB_IGW: {}                               # enabled: false 로 두면 IGW 는 남기고 트래픽만 차단
+    HUB_IGW: {}                             # enabled: false 로 두면 IGW 는 남기고 트래픽만 차단
 
   service_gateways:
     HUB_SGW:
-      services: all-services                  # 또는 objectstorage. hub 안의 리소스(NVA, WAF, DNS)용
-      route_table:                            # SGW 로 들어온 트래픽이 갈 곳. target 은 drg: / privateip: 만
-        name: HUB_SGW_RT                      # 지금은 rule 없음 (아래 WARNING)
+      services: all-services                # 또는 objectstorage. hub 안의 리소스(NVA, WAF, DNS)용
+      route_table:                          # SGW 로 들어온 트래픽이 갈 곳. target 은 drg: / privateip: 만
+        name: HUB_SGW_RT                    # 지금은 rule 없음 (아래 WARNING)
 
   drg_attachment:
     name: HUB_DRG_ATT
     drg: HUB_DRG
-    drg_route_table: autogenerated            # DRG 쪽 테이블 (drg.yaml 의 이름 또는 autogenerated)
-    route_table:                              # DRG → VCN 으로 들어올 때. target 은 sgw: / privateip: 만
+    drg_route_table: autogenerated          # DRG 쪽 테이블 (drg.yaml 의 이름 또는 autogenerated)
+    route_table:                            # DRG → VCN 으로 들어올 때. target 은 sgw: / privateip: 만
       name: HUB_INGRESS_RT
       rules:
-        - destination: spokes                 # spoke ↔ spoke 를 NVA 로
+        - destination: spokes               # spoke ↔ spoke 를 NVA 로
           target: privateip:10.0.16.160
           enabled: auto
 ```
@@ -246,7 +246,7 @@ make test        # stack 마다 terraform init -backend=false && terraform test
   route_tables:
     EC_PRD_RT:
       rules:
-        - destination: all-services           # 0.0.0.0/0 보다 구체적이라 먼저 맞는다
+        - destination: all-services         # 0.0.0.0/0 보다 구체적이라 먼저 맞는다
           target: sgw:EC_PRD_SGW
         - destination: 0.0.0.0/0
           target: drg:HUB_DRG
