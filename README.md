@@ -113,7 +113,7 @@ make test        # 세 stack 각각 terraform init -backend=false && terraform t
 |---|---|
 | 00-iam | `compartments.yaml` 의 compartment 가 모두 만들어지는지 |
 | 10-hub | 실제 `hub.yaml` apply 그래프 (subnet 6, RT 7, DRG 1, attachment 1, SL 4, NSG 2, `buckets.yaml` 의 bucket 전부), privateip target · NSG · source_port, `enabled: auto` (NVA IP 유무에 따라 켜짐 · 빠짐), 게이트웨이 RT 제약 위반 거부, `spokes` 펼침(`tests/fixtures/spokes`) |
-| 20-spoke | ec-prd · ec-dev · erp-prd · erp-dev · mgmt apply (subnet · RT · attachment · NSG 개수), hub 파일 선택 거부, 잘못된 YAML(`tests/fixtures/broken`) 거부, `spokes` 에서 자기 대역 제외 |
+| 20-spoke | ec-prd · ec-dev · erp-prd · erp-dev · mgmt apply (subnet · RT · attachment · NSG 개수, 자기 SGW 와 all-services 경로), hub 파일 선택 거부, 잘못된 YAML(`tests/fixtures/broken`) 거부, `spokes` 에서 자기 대역 제외 |
 | 30-nva | 실제 `nvas.yaml` apply (secondary VNIC 3, secondary IP 1, reserved IP 1, skip source/dest check, public IP), hub 미적용 안내, 잘못된 YAML(`tests/fixtures/broken-nva`) 거부 |
 
 다른 stack 의 state 는 테스트에서 `override_data` 로 대신한다. mock `compartment_ids` 는 `config/compartments.yaml` 의 이름을 그대로 쓰고, `tests/fixtures` 는 전용 이름 `TEST_COMP` 를 쓴다.
@@ -180,20 +180,18 @@ make test        # 세 stack 각각 terraform init -backend=false && terraform t
 > `privateip:` target 은 `enabled: true` 면 그 IP 가 **실제로 있어야** plan 이 통과한다. `enabled: auto` 는 IP 가 있을 때만 rule 을 넣고 없으면 뺀다
 > (i.e., NVA 를 만든 뒤 `make apply-hub` 하면 켜지고, NVA 를 지운 뒤 `make apply-hub` 하면 빠진다). 대상 VNIC 에는 **Skip source/destination check** 가 활성화되어 있어야 트래픽이 지나간다.
 
-### Gateway 와 gateway 용 route table (hub)
+### Gateway 와 gateway 용 route table
 
 ```yaml
+# config/vcns/hub.yaml
   internet_gateways:
     HUB_IGW: {}                               # enabled: false 로 두면 IGW 는 남기고 트래픽만 차단
 
   service_gateways:
     HUB_SGW:
-      services: all-services                  # 또는 objectstorage
-      route_table:                            # SGW 로 들어온 응답이 갈 곳. target 은 drg: / privateip: 만
-        name: HUB_SGW_RT
-        rules:
-          - destination: spokes
-            target: drg:HUB_DRG
+      services: all-services                  # 또는 objectstorage. hub 안의 리소스(NVA · WAF · DNS)용
+      route_table:                            # SGW 로 들어온 트래픽이 갈 곳. target 은 drg: / privateip: 만
+        name: HUB_SGW_RT                      # 지금은 rule 없음 (아래 WARNING)
 
   drg_attachment:
     name: HUB_DRG_ATT
@@ -202,12 +200,35 @@ make test        # 세 stack 각각 terraform init -backend=false && terraform t
     route_table:                              # DRG → VCN 으로 들어올 때. target 은 sgw: / privateip: 만
       name: HUB_INGRESS_RT
       rules:
-        - destination: all-services
-          target: sgw:HUB_SGW
         - destination: spokes                 # spoke ↔ spoke 를 NVA 로
           target: privateip:10.0.16.160
           enabled: auto
 ```
+
+```yaml
+# config/vcns/ec-prd.yaml: OCI 서비스는 자기 SGW 로, 나머지는 hub 로
+  service_gateways:
+    EC_PRD_SGW:
+      services: all-services
+
+  route_tables:
+    EC_PRD_RT:
+      rules:
+        - destination: all-services           # 0.0.0.0/0 보다 구체적이라 먼저 맞는다
+          target: sgw:EC_PRD_SGW
+        - destination: 0.0.0.0/0
+          target: drg:HUB_DRG
+```
+
+> [!NOTE]
+> spoke 마다 SGW 를 두는 이유: OCI 는 요청이 어느 VCN 의 SGW 로 들어왔는지 보므로 IAM network source 로 spoke VCN 별 접근 제어를 할 수 있고,
+> hub 경로 장애가 spoke 의 OCI 서비스 접근으로 번지지 않는다. hub SGW 를 거치는 transit 이 필요하면 (e.g., 본사 → OCI 서비스)
+> `service_gateways.<SGW>.route_table:` 의 rule (target `drg:` / `privateip:`) 과 `HUB_INGRESS_RT` 의 `all-services → sgw:` rule 로 만든다.
+
+> [!WARNING]
+> OCI 는 SGW 에 한 번 붙인 route table 을 떼지 못하게 한다 (다른 테이블로 바꾸기만 된다). YAML 에서 `route_table:` 을 지우면
+> provider 가 연결 해제를 보내지 않아 plan 은 RT 삭제만 잡고, apply 는 `409-Conflict, Gateway entity ... using the route table exists` 로 실패한다.
+> 필요 없어진 SGW route table 은 지우지 말고 `rules` 만 비운다.
 
 ### Security List: 프로토콜별
 
@@ -275,14 +296,12 @@ spoke 대역을 CIDR 로 나열하는 대신 `spokes` 라고 쓴다. `config/vcn
 spoke 를 추가 · 삭제해도 이 rule 은 고치지 않는다.
 
 ```yaml
-# config/vcns/hub.yaml: OSN 응답을 spoke 전체로
-  service_gateways:
-    HUB_SGW:
-      route_table:
-        name: HUB_SGW_RT
-        rules:
-          - destination: spokes                   # → 10.1 · 10.2 · 10.3 · 10.4 · 10.5 (/16)
-            target: drg:HUB_DRG
+# config/vcns/hub.yaml: NVA 가 검사한 트래픽을 spoke 전체로
+  route_tables:
+    HUB_FW_TRUST_PRI_RT:
+      rules:
+        - destination: spokes                     # → 10.1 · 10.2 · 10.3 · 10.4 · 10.5 (/16)
+          target: drg:HUB_DRG
 ```
 
 ```yaml
@@ -363,6 +382,10 @@ STG_VCN:
   cidrs: [10.6.0.0/16]                        # 다른 VCN 과 겹치지 않게 (지금 10.0 ~ 10.5 사용 중)
   dns_label: stg
 
+  service_gateways:
+    STG_SGW:                                  # OCI 서비스는 hub 를 거치지 않고 자기 SGW 로
+      services: all-services
+
   drg_attachment:
     name: STG_DRG_ATT
     drg: HUB_DRG
@@ -371,6 +394,8 @@ STG_VCN:
   route_tables:
     STG_RT:
       rules:
+        - destination: all-services
+          target: sgw:STG_SGW
         - destination: 0.0.0.0/0
           target: drg:HUB_DRG
 
@@ -461,8 +486,9 @@ NVA_PASS="<vyos 사용자 비밀번호>"
 > `make apply-hub` 는 `make configure-nva` **다음에** 한다. NVA IP 가 생긴 뒤 hub 를 apply 하면 rule 이 바로 켜지는데,
 > VyOS 설정 전이면 spoke 의 인터넷 · spoke 간 통신이 끊긴다.
 
-- **VyOS 설정 변경**: `stacks/30-nva/vyos.sh.tftpl` 을 고치고 `make configure-nva` 를 다시 실행한다. 스크립트는 `set` 만 하므로 템플릿에서 지운 설정은 장비에서 직접 `delete` 한다.
-- **spoke 추가**: 경로 · NAT · 그룹은 템플릿을 고치지 않아도 따라온다 (`config/vcns` 파일 이름이 `prd` 로 끝나면 VCN-PRD, 나머지 spoke 는 VCN-NONPRD). `make configure-nva` 만 다시 실행한다.
+- **VyOS 설정 변경**: `stacks/30-nva/vyos.sh.tftpl` 을 고치고 `make apply-nva configure-nva` 를 실행한다 (apply 가 output `vyos_config` 를 갱신한다). `NAT-INSIDE` · `VCN-PRD` · `VCN-NONPRD` 그룹은 매번 다시 만들고, 나머지는 `set` 만 하므로 템플릿에서 지운 설정은 장비에서 직접 `delete` 한다.
+- **spoke 추가**: 경로 · NAT · 그룹은 템플릿을 고치지 않아도 따라온다. `make apply-nva configure-nva` 만 다시 실행한다.
+- **VCN 간 차단**: `config/vcns` 파일 이름이 `prd` 로 끝나면 VCN-PRD, `mgmt` 를 뺀 나머지 spoke 는 VCN-NONPRD 이고, 두 그룹 사이는 NVA 가 막는다. `mgmt` 는 어느 그룹에도 없어 모든 VCN 과 양방향으로 통신한다 (모니터링 · 접근제어 · DB 암호화 솔루션 자리).
 - **eth 번호 확인**: VyOS 의 `show interfaces` MAC 과 `nva_vnics` output 의 `mac` 을 대조한다.
 - **다시 만들기**: `make destroy-nva && make apply-nva configure-nva apply-hub`. reserved IP 도 지워져 공인 IP 가 바뀐다. 전에 쓰던 공인 IP 를 다시 받으면 SSH host key 불일치로 접속이 거부되니 `ssh-keygen -R <IP>` 로 지운다.
 
@@ -611,7 +637,7 @@ route rule `enabled` 값(`true` / `false` / `auto`, `auto` 는 `privateip:` targ
 - **subnet ↔ route table 연결은 `oci_core_route_table_attachment`**
   RT 가 같은 VCN 의 private IP(NVA)를 target 으로 쓰면 `subnet → RT → private IP → subnet` 순환이 생겨서,
   subnet 은 기본 RT 로 만든 뒤 연결만 따로 한다.
-- HUB_SGW_RT(DRG target)는 hub DRG attachment 보다 먼저 만들어진다. OCI 는 attach 되지 않은 DRG 를
+- SGW 용 RT(DRG target)는 같은 VCN 의 DRG attachment 보다 먼저 만들어진다. OCI 는 attach 되지 않은 DRG 를
   target 으로 받는다 (2026-11 실제 테넌시에서 이 순서 그대로 확인).
 - **스키마는 두 곳**: 타입은 `modules/network/variables.tf`, 허용 키 목록은 `modules/config/main.tf` 의 `allowed`.
 - spoke 는 hub 의 DRG 를 `external_drg_ids` / `external_drg_route_table_ids` 로 받는다.
