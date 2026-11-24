@@ -1,7 +1,7 @@
 #!/bin/vbash
 # stacks/30-nva 가 만든 VyOS 설정 (terraform output vyos_config). make configure-nva 가 SSH 로 적용한다.
-# 인터페이스 이름 · MAC · 주소 · spoke 대역은 config/ 에서 오고, 나머지 정책은 이 템플릿에 적는다.
-# N.B. NAT-INSIDE · VCN-PRD · VCN-NONPRD 그룹 말고는 set 만 하므로, 템플릿에서 지운 줄은 장비에서 지워지지 않는다 (delete 줄을 따로 넣는다).
+# 인터페이스 이름, MAC, 주소, spoke 대역은 config/ 에서 오고, 나머지 정책은 이 템플릿에 적는다.
+# N.B. NAT-INSIDE, VCN-PRD, VCN-NONPRD, VCN-MGMT 그룹 말고는 set 만 하므로, 템플릿에서 지운 줄은 장비에서 지워지지 않는다 (delete 줄을 따로 넣는다).
 source /opt/vyatta/etc/functions/script-template
 configure
 
@@ -16,7 +16,7 @@ set interfaces ethernet ${e} address '${a}'
 set interfaces ethernet ${eth.trust} mtu '9000'
 set interfaces ethernet ${eth.ha} mtu '9000'
 
-# 메인 테이블: 인터넷은 untrust, 내부(spoke · WAF · DNS · HQ)는 trust 의 VCN 라우터로
+# 메인 테이블: 인터넷은 untrust, 내부(spoke, WAF, DNS, HQ)는 trust 의 VCN 라우터로
 set protocols static route 0.0.0.0/0 next-hop ${gw.untrust}
 %{ for c in concat(spokes, ["10.0.64.0/24", "10.0.80.0/24", "192.168.10.0/24"]) ~}
 set protocols static route ${c} next-hop ${gw.trust}
@@ -26,7 +26,7 @@ set protocols static route ${c} next-hop ${gw.trust}
 set system name-server '1.1.1.1'
 
 # 아래 그룹은 config 에서 다시 만든다 (spoke 를 빼거나 다른 그룹으로 옮기면 장비에서도 빠지게)
-%{ for g in ["NAT-INSIDE", "VCN-PRD", "VCN-NONPRD"] ~}
+%{ for g in ["NAT-INSIDE", "VCN-PRD", "VCN-NONPRD", "VCN-MGMT"] ~}
 cli-shell-api exists firewall group network-group ${g} && delete firewall group network-group ${g}
 %{ endfor ~}
 
@@ -45,7 +45,7 @@ set firewall global-options state-policy related action 'accept'
 set firewall global-options state-policy invalid action 'drop'
 
 # 운영 ↔ 비운영 차단 (config/vcns 파일 이름이 prd 로 끝나면 VCN-PRD, mgmt 를 뺀 나머지 spoke 는 VCN-NONPRD)
-# mgmt 는 어느 그룹에도 없으므로 모든 VCN 과 양방향으로 통신한다 (모니터링 · 접근제어 · DB 암호화)
+# mgmt 는 어느 그룹에도 없으므로 모든 VCN 과 양방향으로 통신한다 (모니터링, 접근제어, DB 암호화)
 %{ for c in prd ~}
 set firewall group network-group VCN-PRD network '${c}'
 %{ endfor ~}
@@ -72,6 +72,20 @@ set firewall zone TRUST default-action 'drop'
 set firewall zone TRUST intra-zone-filtering firewall name 'TRUST-INTRA'
 set firewall zone HA member interface '${eth.ha}'
 set firewall zone HA default-action 'drop'
+
+# 모니터링: node-exporter(:9100)를 trust IP 에 띄우고 mgmt VCN(Prometheus 자리)에서만 읽게 한다.
+# node-exporter 에는 allow-from 이 없고 trust SL 은 10.0.0.0/13 을 다 열어 두므로 input filter 로 막는다
+set service monitoring prometheus node-exporter listen-address '${split("/", addr.trust[0])[0]}'
+%{ for c in mgmt ~}
+set firewall group network-group VCN-MGMT network '${c}'
+%{ endfor ~}
+set firewall ipv4 input filter rule 100 action 'accept'
+set firewall ipv4 input filter rule 100 protocol 'tcp'
+set firewall ipv4 input filter rule 100 destination port '9100'
+set firewall ipv4 input filter rule 100 source group network-group 'VCN-MGMT'
+set firewall ipv4 input filter rule 110 action 'drop'
+set firewall ipv4 input filter rule 110 protocol 'tcp'
+set firewall ipv4 input filter rule 110 destination port '9100'
 
 commit
 save

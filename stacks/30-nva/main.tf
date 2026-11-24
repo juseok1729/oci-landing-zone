@@ -1,5 +1,5 @@
 #
-# 30-nva : NVA 인스턴스(config/nvas.yaml) + secondary VNIC · secondary IP · reserved public IP
+# 30-nva : NVA 인스턴스(config/nvas.yaml) + secondary VNIC, secondary IP, reserved public IP
 #   hub 의 subnet 에 붙으므로 hub 다음에 apply 하고, hub 보다 먼저 destroy 한다.
 #
 terraform {
@@ -230,7 +230,7 @@ locals {
   spoke_files = { for f, d in module.config.vcn_files : f => flatten([for v in values(d) : try(v.cidrs, [])]) if f != "hub" }
   spoke_cidrs = sort(flatten(values(local.spoke_files)))
   prd_cidrs   = sort(flatten([for f, c in local.spoke_files : c if endswith(f, "prd")]))
-  # mgmt 는 모든 VCN 을 모니터링 · 접근제어하므로 어느 그룹에도 넣지 않는다 (TRUST-INTRA default accept)
+  # mgmt 는 모든 VCN 을 모니터링, 접근제어하므로 어느 그룹에도 넣지 않는다 (TRUST-INTRA default accept)
   nonprd_cidrs = sort(flatten([for f, c in local.spoke_files : c if !endswith(f, "prd") && f != "mgmt"]))
 
   vyos_vars = {
@@ -247,6 +247,7 @@ locals {
       spokes = local.spoke_cidrs
       prd    = local.prd_cidrs
       nonprd = local.nonprd_cidrs
+      mgmt   = try(local.spoke_files["mgmt"], [])
     }
   }
 }
@@ -289,7 +290,7 @@ output "nva_ids" {
 }
 
 output "nva_vnics" {
-  description = "VNIC 별 IP · MAC (VyOS 의 show interfaces 와 MAC 으로 대조한다)"
+  description = "VNIC 별 IP, MAC (VyOS 의 show interfaces 와 MAC 으로 대조한다)"
   value = {
     for k, x in local.vnics : k => {
       private_ip    = local.vnic_ips[k]
