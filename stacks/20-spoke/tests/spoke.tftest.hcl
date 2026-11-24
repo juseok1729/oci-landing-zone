@@ -2,7 +2,7 @@
 #   test 는 default workspace 에서 돌기 때문에 var.vcn 으로 VCN 파일을 고른다.
 
 mock_provider "oci" {
-  # SGW 의 all-services 를 service id · CIDR label 로 바꾸는 데 쓴다
+  # SGW 의 all-services 를 service id, CIDR label 로 바꾸는 데 쓴다
   mock_data "oci_core_services" {
     defaults = {
       services = [
@@ -162,7 +162,7 @@ run "mgmt_applies" {
   }
   assert {
     condition     = length(output.nsg_ids) == 5
-    error_message = "MGMT 는 NSG 5(HQ_SSH + CI/CD 의 LB·VM, NSG→NSG 규칙 포함) 이어야 합니다."
+    error_message = "MGMT 는 NSG 5(HQ_SSH + CI/CD 의 LB, VM, NSG→NSG 규칙 포함) 이어야 합니다."
   }
 }
 

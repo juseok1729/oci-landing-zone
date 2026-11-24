@@ -28,7 +28,7 @@ HUB_VCN:
   # 게이트웨이에 붙는 route table 은 그 게이트웨이 아래에 적는다 (subnet 용은 route_tables:).
   #   SGW 용 RT       → target: drg: / privateip: 만 가능 (OCI 제약)
   #   DRG attachment  → target: sgw: / privateip: 만 가능 (OCI 제약)
-  # HUB_SGW 는 hub 안의 리소스(NVA · WAF · DNS)용이다. spoke 는 각자 SGW 로 OCI 서비스에 나간다
+  # HUB_SGW 는 hub 안의 리소스(NVA, WAF, DNS)용이다. spoke 는 각자 SGW 로 OCI 서비스에 나간다
   # (IAM network source 가 spoke VCN 을 구분할 수 있고, hub 경로 장애가 spoke 의 OCI 서비스 접근으로 번지지 않는다).
   service_gateways:
     HUB_SGW:

@@ -74,7 +74,7 @@ module "network" {
 
   compartment_ids              = local.compartment_ids
   spoke_cidrs                  = local.spoke_cidrs
-  vcns                         = local.hub_ready ? local.vcns : {} # DRG 가 없으면 attachment · route 를 계획할 수 없다
+  vcns                         = local.hub_ready ? local.vcns : {} # DRG 가 없으면 attachment, route 를 계획할 수 없다
   external_drg_ids             = try(data.terraform_remote_state.hub.outputs.drg_ids, {})
   external_drg_route_table_ids = try(data.terraform_remote_state.hub.outputs.drg_route_table_ids, {})
   freeform_tags                = local.tags

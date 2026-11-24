@@ -1,4 +1,4 @@
-# destination: spokes 가 hub 외 VCN 파일(a, b)의 CIDR 로 펼쳐지는지 (hub · spoke 테스트 공용)
+# destination: spokes 가 hub 외 VCN 파일(a, b)의 CIDR 로 펼쳐지는지 (hub, spoke 테스트 공용)
 drgs:
   HUB_DRG:
     compartment: TEST_COMP

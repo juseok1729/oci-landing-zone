@@ -1,5 +1,5 @@
 #
-# 10-hub : DRG(+ DRG route table) · HUB_VCN(config/vcns/hub.yaml) · bucket 전부(config/buckets.yaml)
+# 10-hub : DRG(+ DRG route table), HUB_VCN(config/vcns/hub.yaml), bucket 전부(config/buckets.yaml)
 #   spoke stack 은 이 state 의 drg_ids / drg_route_table_ids 를 읽어 DRG 에 attach 한다.
 #
 terraform {

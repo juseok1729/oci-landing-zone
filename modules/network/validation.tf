@@ -65,7 +65,7 @@ locals {
   err_vcn = flatten([
     for vk, v in local.vcn : concat(
       length(v.cidrs) > 0 && alltrue([for c in v.cidrs : can(cidrhost(c, 0))]) ? [] : ["VCN ${vk}: cidrs 형식 오류 (예: [10.0.0.0/16])"],
-      v.dns_label == null || can(regex("^[a-z][a-z0-9]{0,14}$", v.dns_label)) ? [] : ["VCN ${vk}: dns_label '${coalesce(v.dns_label, "-")}' 은 영소문자로 시작하는 영소문자·숫자 15자 이내여야 합니다"]
+      v.dns_label == null || can(regex("^[a-z][a-z0-9]{0,14}$", v.dns_label)) ? [] : ["VCN ${vk}: dns_label '${coalesce(v.dns_label, "-")}' 은 영소문자로 시작하는 영소문자, 숫자 15자 이내여야 합니다"]
     )
   ])
 
@@ -94,7 +94,7 @@ locals {
         if n != "default" && !try(local.sl[n].vcn_key == s.vcn_key, false)
       ],
 
-      s.dns_label == null || can(regex("^[a-z][a-z0-9]{0,14}$", s.dns_label)) ? [] : ["subnet ${sk}: dns_label '${coalesce(s.dns_label, "-")}' 은 영소문자로 시작하는 영소문자·숫자 15자 이내여야 합니다"],
+      s.dns_label == null || can(regex("^[a-z][a-z0-9]{0,14}$", s.dns_label)) ? [] : ["subnet ${sk}: dns_label '${coalesce(s.dns_label, "-")}' 은 영소문자로 시작하는 영소문자, 숫자 15자 이내여야 합니다"],
 
       s.dns_label == null || local.vcn[s.vcn_key].dns_label != null ? [] : ["subnet ${sk}: dns_label 을 쓰려면 ${s.vcn_key} 에도 dns_label 이 있어야 합니다"]
     )
