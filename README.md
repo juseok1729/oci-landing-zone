@@ -35,7 +35,7 @@
 ## Overview
 
 > [!IMPORTANT]
-> 팀원은 `config/` 아래 YAML 만 수정한다. `modules/`, `stacks/` 는 관리자(owner)만 손댄다.
+> 작업자는 `config/` 아래 YAML 만 수정한다. `modules/`, `stacks/` 는 관리자(owner)만 손댄다.
 
 ```sh
 oci-landing-zone/
@@ -94,7 +94,7 @@ make apply-mon        # 7. 모니터링 VM (Prometheus, Grafana) + Bastion. mgmt
 # 삭제: make destroy-all (역순. compartment 는 state 에서만 빠지고 OCI 에 남음. cf. enable_delete = false)
 ```
 
-지금 config 기준 stack 은 아래와 같다. spoke 의 make target 은 `config/vcns` 파일 이름에서 나온다.
+현재 config 기준 stack 은 아래와 같다. spoke 의 make target 은 `config/vcns` 파일 이름을 따른다.
 
 | VCN 파일 | compartment | CIDR | 실행 |
 | --- | --- | --- | --- |
@@ -179,7 +179,7 @@ make test        # stack 마다 terraform init -backend=false && terraform test
 ```
 
 > [!WARNING]
-> subnet 의 `public` 과 `dns_label` 은 만든 뒤 바꾸면 **subnet 이 삭제 후 재생성**된다.
+> subnet 의 `public` 과 `dns_label` 은 만든 뒤 바꾸면 **subnet 이 삭제 후 재생성**되므로 주의.
 > 안에 인스턴스나 LB 가 있으면 삭제가 실패하므로 처음에 정해 둔다.
 
 ### Route table (subnet 용)
@@ -507,7 +507,8 @@ make apply-hub                                      # 3. hub 의 enabled: auto r
 | `configure-nva` | 설정 스크립트(output `vyos_config`)를 mgmt 공인 IP 로 보내 `commit`, `save` 한다. 인터페이스 주소, hw-id(MAC), 게이트웨이, spoke 경로, NAT, VCN-PRD/NONPRD/MGMT 그룹은 config 에서 채운다 | `stacks/30-nva/vyos.sh.tftpl` |
 | `apply-hub` | `privateip:10.0.16.160` 을 target 으로 쓰는 rule(`enabled: auto`)을 켠다 | `config/vcns/hub.yaml` |
 
-SSH 는 비밀번호 인증이다 (이미지가 그렇게 구성돼 있어 SSH 키는 넣지 않는다). 비밀번호는 repo 루트 `.env.local` 에 두고, 이 파일은 `.gitignore` 에 있다.
+해당 VyOS 커스텀이미지의 SSH 는 비밀번호 인증이다. (커스텀이미지 생성시 SSH 키 인증을 비활성화해 생성했다. 인스턴스 생성시 키는 넣지 않는다).  
+비밀번호는 repo 루트 `.env.local` 에 두고, 이 파일은 `.gitignore` 에 있다.
 
 ```bash
 # .env.local
