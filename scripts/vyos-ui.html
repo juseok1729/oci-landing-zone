@@ -1,0 +1,354 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>VyOS Viewer</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700&display=swap">
+<!-- 조회 전용 템플릿. scripts/vyos-ui.sh 가 아래 __DATA__ 자리에 장비에서 읽은 JSON 을 넣어 out/vyos-<host>.html 을 만든다. 룩은 ASK_FortiGate.html 을 따른다 -->
+<style>
+:root{
+  --side:#3b4046;--side-head:#4a5057;--side-hover:#4a5057;--side-active:#2a79c9;--side-text:#e9ecef;
+  --top:#4c5259;--bg:#f3f4f5;--paper:#fff;--fg:#1f2326;--muted:#6b737b;--line:#d6d9dc;
+  --blue:#2a79c9;--green:#1c9a3a;--red:#d1332a;--gold:#f7c02e;--group:#5b6168;
+  --font:"Lato","Helvetica Neue",Arial,sans-serif;--mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.35 var(--font);overflow:hidden}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+.app{display:flex;height:100%}
+/* sidebar */
+.side{background:var(--side);color:var(--side-text);display:flex;flex-direction:column;flex:none;width:232px;overflow:hidden;transition:width .35s cubic-bezier(.65,0,.35,1)}
+.side>*{min-width:232px}
+.app.collapsed .side{width:0}
+.side-head{height:44px;display:flex;align-items:center;gap:8px;padding:0 14px;background:var(--side-head)}
+.side-head .dev{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nav{flex:1;overflow:auto;min-height:0}
+.nav-sec{border-bottom:1px solid #4a5057}
+.nav-top{display:flex;align-items:center;gap:12px;height:36px;padding:0 10px;cursor:pointer}
+.nav-top:hover,.nav-item:hover{background:var(--side-hover);color:#fff}
+.nav-top .ico{width:18px;height:18px;flex:none}
+.nav-top .lbl{flex:1}
+.nav-top .chev{width:10px;height:10px;transition:transform .15s}
+.nav-sec.open .nav-top{font-weight:700;border-left:3px solid #fff;padding-left:7px}
+.nav-sec.open .chev{transform:rotate(90deg)}
+.nav-sub{display:none}.nav-sec.open .nav-sub{display:block}
+.nav-item{display:flex;align-items:center;height:36px;padding:0 10px 0 40px;cursor:pointer;color:#d8dcdf;text-decoration:none}
+.nav-item.on{background:var(--side-active);color:#fff}
+.side-foot{height:38px;border-top:1px solid #5a6067;display:flex;align-items:center;justify-content:space-between;padding:0 14px;font-size:12px;color:#c6cbd0}
+.side-foot b{letter-spacing:.14em;font-size:14px;color:#fff}
+/* main */
+.main{flex:1;display:flex;flex-direction:column;min-width:0}
+.top{height:44px;background:var(--top);color:#fff;display:flex;align-items:center;gap:18px;padding:0 18px;flex:none;white-space:nowrap}
+.top svg{width:17px;height:17px;display:block}
+.top .sp{flex:1}
+.top .ro{border:1px solid rgba(255,255,255,.55);border-radius:2px;padding:1px 7px;font-size:12px}
+.content{flex:1;min-height:0;display:flex;flex-direction:column}
+.toolbar{display:flex;gap:8px;padding:8px 10px;flex:none}
+.search{flex:1;max-width:520px;display:flex;align-items:center;height:30px;border:1px solid #b9bec3;background:#fff;border-radius:2px}
+.search svg{width:15px;height:15px;margin:0 6px 0 9px;flex:none}
+.search input{flex:1;border:0;outline:0;height:100%;font:inherit;min-width:0;background:none}
+.scroll{flex:1;min-height:0;overflow:auto;background:var(--paper)}
+table.grid{width:100%;border-collapse:collapse;min-width:960px}
+.grid th{background:#f7f8f9;font-weight:400;height:36px;padding:0 8px;border:1px solid var(--line);border-top:0;position:sticky;top:0;z-index:2;white-space:nowrap}
+.grid td{border:1px solid var(--line);padding:7px 8px;vertical-align:top}
+.grid td.n{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+.grid td.none{text-align:center;color:var(--muted);padding:30px}
+.grid tr.grp td{background:var(--group);color:#fff;border-color:#4e545b;border-left:0;border-right:0;cursor:pointer;user-select:none;padding:8px 14px}
+.grid tr.grp:hover td{background:#666c73}
+.grid tr.grp.imp td{background:#7a8087}
+.grid tr.grp small{opacity:.8;font-size:13px}
+.grid tr.imp:not(.grp) td{background:#f7f8f9}
+.grid tr.off td{color:#9aa0a6}
+.grid tr.fold,.grid tr.miss{display:none}
+.bx{display:inline-block;width:15px;height:15px;border:1.5px solid #fff;border-radius:2px;position:relative;flex:none}
+.bx::before,.bx::after{content:"";position:absolute;background:#fff;left:3px;right:3px;top:5.5px;height:1.5px}
+.bx::after{display:none}
+tr.closed .bx::after{display:block;left:5.5px;right:auto;top:3px;bottom:3px;height:auto;width:1.5px}
+.pair{display:inline-flex;align-items:center;gap:8px;font-size:15px}
+.pair .arr{width:18px;height:10px;flex:none}
+.cnt{display:inline-block;min-width:22px;height:22px;line-height:22px;padding:0 6px;border-radius:11px;background:#fff;color:var(--fg);text-align:center;font-size:13px}
+.tag{display:flex;align-items:center;gap:5px;white-space:nowrap}
+.tag+.tag{margin-top:4px}
+.ic{display:inline-flex;width:17px;height:15px;flex:none;align-items:center;justify-content:center;border-radius:2px;background:#2e3338;color:#fff;font-size:11px;font-weight:700}
+.ic.g{background:transparent;border:1.5px solid #2e3338;width:16px;height:14px;box-shadow:2px -2px 0 -1px #2e3338}
+.ic.f{font-size:8px;letter-spacing:-1px}
+.ic.sv::before{content:"";width:9px;height:7px;border:1.5px solid #fff;border-radius:1px}
+.act{display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.ok,.xx,.up,.dn,.na{display:inline-flex;width:18px;height:18px;border-radius:50%;color:#fff;align-items:center;justify-content:center;font-size:11px;flex:none}
+.ok,.up{background:var(--green)}.xx,.dn{background:var(--red)}.na{background:#9aa0a6}
+.statusbar{height:40px;flex:none;background:#eef0f2;border-top:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 14px 0 10px}
+.hint{padding:40px;color:var(--muted);text-align:center;line-height:1.8}
+.hint code,.mono{font-family:var(--mono);font-size:13px}
+.mono{white-space:pre-wrap;word-break:break-all}
+.muted{color:var(--muted)}
+/* dashboard */
+.dash{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;padding:12px;overflow:auto;align-content:start}
+.wg{background:#fff;border:1px solid var(--line);min-width:0}
+.wg h3{margin:0;font-size:14px;font-weight:700;padding:10px 12px;border-bottom:1px solid var(--line)}
+.kv{width:100%;border-collapse:collapse}
+.kv td{padding:6px 12px;vertical-align:top}
+.kv td:first-child{color:#55595e;width:150px;white-space:nowrap}
+@media (max-width:760px){.dash{grid-template-columns:1fr}.app:not(.collapsed) .side{position:absolute;z-index:10;height:100%}}
+</style>
+</head>
+<body>
+<div class="app">
+<aside class="side">
+  <div class="side-head">
+    <svg width="20" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.6"><rect x="3" y="4" width="18" height="14" rx="1"/><path d="M3 9h18M7 13h4"/></svg>
+    <span class="dev" id="dev">VyOS</span>
+  </div>
+  <nav class="nav" id="nav"></nav>
+  <div class="side-foot"><b>VyOS</b><span id="ver"></span></div>
+</aside>
+<div class="main">
+  <header class="top">
+    <button id="burger" aria-label="menu"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+    <span id="title"></span>
+    <span class="sp"></span>
+    <span class="ro">Read-only</span>
+    <span id="snap"></span>
+  </header>
+  <div class="content" id="content"></div>
+</div>
+</div>
+
+<script id="data" type="application/json">
+__DATA__
+</script>
+<script>
+const $=(s,r=document)=>r.querySelector(s);
+const h=s=>String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+const arr=v=>v==null?[]:Array.isArray(v)?v:[v];
+const ids=o=>Object.keys(o||{}).sort((a,b)=>a-b);
+const fmt=n=>n==null?'':n.toLocaleString();
+const bytes=n=>{if(n==null)return'';const u=['B','kB','MB','GB','TB'];let i=0;while(n>=1024&&i<4){n/=1024;i++}return(i?n.toFixed(1):n)+' '+u[i];};
+// [path[], value|null] 목록. set 명령 보기와 그룹 참조 계산에 쓴다
+const leaves=(v,p=[])=>Array.isArray(v)?v.flatMap(x=>leaves(x,p)):v&&typeof v==='object'
+  ?(Object.keys(v).length?Object.entries(v).flatMap(([k,x])=>leaves(x,[...p,k])):[[p,null]]):[[p,String(v)]];
+
+let D=null;try{D=JSON.parse($('#data').textContent)}catch(e){}
+if(!D){
+  $('#content').innerHTML='<div class="hint">데이터가 없는 템플릿이다.<br><code>scripts/vyos-ui.sh</code> 를 실행하면 장비에서 읽은 값으로 <code>scripts/out/vyos-&lt;host&gt;.html</code> 이 만들어진다.</div>';
+  throw new Error('no data');
+}
+
+const C=D.config||{},FW=C.firewall||{},V4=FW.ipv4||{},ZONES=FW.zone||{},GRP=FW.group||{};
+const LEAVES=leaves(C);
+const GTYPES=['address-group','network-group','port-group','interface-group','domain-group','mac-group'];
+
+// nft 카운터: VyOS 가 rule 마다 다는 comment (e.g., ipv4-NAM-TRUST-INTRA-100) 로 찾는다
+// shortcut: IPv4(family ip) 만 센다, ipv6 ruleset 을 쓰게 되면 family ip6 도 따로 모은다
+const CNT={},ST={};
+for(const o of D.nft?.nftables||[]){
+  const r=o.rule;if(!r||r.family!=='ip')continue;
+  const c=(r.expr||[]).find(e=>e.counter)?.counter;if(!c)continue;
+  if(r.comment){const x=CNT[r.comment]||(CNT[r.comment]={p:0,b:0});x.p+=c.packets;x.b+=c.bytes;}
+  if(r.chain==='VYOS_STATE_POLICY'){const m=r.expr.find(e=>e.match?.left?.ct);if(m)ST[m.match.right]={p:c.packets,b:c.bytes};}
+}
+
+// 그룹 참조: 마지막 key 가 그룹 종류이고 값이 그룹 이름인 줄 (e.g., ... rule 100 source group network-group VCN-PRD)
+const REFS={};
+for(const [p,v] of LEAVES){
+  const t=p[p.length-1];if(v==null||!GTYPES.includes(t))continue;
+  let i=p.length-2;while(i>0&&p[i]!=='source'&&p[i]!=='destination')i--;
+  (REFS[t+':'+v]||(REFS[t+':'+v]=[])).push(p.slice(0,i>0?i:-2).join(' '));
+}
+
+/* ---------- cell renderers ---------- */
+const ARROW='<svg class="arr" viewBox="0 0 20 10" fill="none" stroke="#fff" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M1 5h17M14 1.5L18 5l-4 3.5"/></svg>';
+const SEARCH='<svg viewBox="0 0 24 24" fill="none" stroke="#333" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>';
+const t4=a=>`<span class="tag"><span class="ic">4</span>${h(a)}</span>`;
+const members=(t,n)=>{const g=GRP[t]?.[n]||{};return[...arr(g.network),...arr(g.address),...arr(g.port),...arr(g.interface),...arr(g['mac-address']),...arr(g.include).map(x=>'include '+x)];};
+const tg=(t,n)=>`<span class="tag" title="${h(t+': '+members(t,n).join(', '))}"><span class="ic g"></span>${h(n)}</span>`;
+const tsv=s=>`<span class="tag"><span class="ic sv"></span>${s}</span>`;
+function ends(s){
+  if(!s)return t4('all');
+  const o=arr(s.address).map(t4);
+  for(const t of GTYPES)if(t!=='port-group')arr(s.group?.[t]).forEach(n=>o.push(tg(t,n)));
+  arr(s.fqdn).forEach(f=>o.push(`<span class="tag"><span class="ic f">abc</span>${h(f)}</span>`));
+  return o.length?o.join(''):t4('all');
+}
+function svc(r){
+  const pr=(r.protocol||'all').toUpperCase(),o=[];
+  arr(r.destination?.port).forEach(p=>o.push(tsv(h(pr+'/'+p))));
+  arr(r.destination?.group?.['port-group']).forEach(n=>o.push(tg('port-group',n)));
+  arr(r.source?.port).forEach(p=>o.push(tsv(h(pr+' sport '+p))));
+  return o.length?o.join(''):tsv(h(pr));
+}
+// 위 열에서 다루지 않은 조건은 key value 로 그대로 보여 준다 (e.g., state, inbound-interface)
+function rest(r,skip=[]){
+  const sk=new Set(['action','description','protocol','log','disable','jump-target',...skip]),o=[];
+  for(const [k,v] of Object.entries(r)){
+    if(sk.has(k))continue;
+    let x=v;
+    if(k==='source'||k==='destination'){const{address,group,port,fqdn,...y}=v||{},g={...group};for(const t of GTYPES)delete g[t];x=Object.keys(g).length?{...y,group:g}:y;}
+    leaves(x,[k]).forEach(([p,val])=>{if(p.length>1||val!=null)o.push(p.join(' ')+(val==null?'':' '+val));});
+  }
+  return o.map(s=>`<div>${h(s)}</div>`).join('');
+}
+function act(a,jump){
+  const ico=a==='accept'?'<span class="ok">✓</span>':a==='drop'||a==='reject'?'<span class="xx">✕</span>':'<span class="na">→</span>';
+  return `<span class="act">${ico}${h(String(a||'').toUpperCase())}${jump?' → '+h(jump):''}</span>`;
+}
+const st=s=>s==='UP'?'<span class="up">▲</span>':s==='DOWN'?'<span class="dn">▼</span>':'<span class="na">•</span>';
+
+/* ---------- table, groups ---------- */
+let GID=0;
+const grp=(label,n,cls='')=>{const g=++GID;return[g,`<tr class="grp ${cls}" data-h="${g}"><td colspan="20"><span class="pair"><span class="bx"></span>${label}<span class="cnt">${n}</span></span></td></tr>`];};
+function table(cols,rows){
+  const n=rows.filter(r=>!r.startsWith('<tr class="grp')).length;
+  return `<div class="toolbar"><label class="search">${SEARCH}<input placeholder="Search" aria-label="Search"></label></div>
+  <div class="scroll"><table class="grid"><thead><tr>${cols.map(c=>`<th>${c}</th>`).join('')}</tr></thead>
+  <tbody>${n?rows.join(''):`<tr><td colspan="${cols.length}" class="none">No matching entries found</td></tr>`}</tbody></table></div>
+  <div class="statusbar"><span>${n} entries</span><span class="muted">Snapshot ${h(D.fetched)}</span></div>`;
+}
+const zm=z=>{const Z=ZONES[z]||{};if('local-zone' in Z)return'local';const m=Z.member||{};return[...arr(m.interface),...arr(m['interface-group']).map(x=>'@'+x),...arr(m.vrf).map(x=>'vrf '+x)].join(', ');};
+const zl=z=>z==='any'?'any':`${h(z)} <small>(${h(zm(z))})</small>`;
+
+/* ---------- policy views ---------- */
+const POLCOLS=['ID','Name','Source','Destination','Service','Match','Action','Log','Packets','Bytes'];
+function defRow(g,a,c,log){
+  return `<tr data-g="${g}" class="imp"><td></td><td>default-action</td><td>${t4('all')}</td><td>${t4('all')}</td><td>${svc({})}</td><td></td><td>${act(a)}</td><td>${log?'✓':''}</td><td class="n">${fmt(c?.p)}</td><td class="n">${bytes(c?.b)}</td></tr>`;
+}
+// pfx, name: nft comment 앞부분 (NAM + ruleset 이름, INP/FWD/OUT + filter)
+function rulesetRows(g,rs,pfx,name,dflt){
+  const out=ids(rs.rule).map(id=>{
+    const r=rs.rule[id],c=CNT[`ipv4-${pfx}-${name}-${id}`];
+    return `<tr data-g="${g}"${'disable' in r?' class="off"':''}><td>${h(id)}</td><td>${h(r.description||'')}${'disable' in r?' <span class="muted">(disabled)</span>':''}</td><td>${ends(r.source)}</td><td>${ends(r.destination)}</td><td>${svc(r)}</td><td>${rest(r)}</td><td>${act(r.action,r['jump-target'])}</td><td>${'log' in r?'✓':''}</td><td class="n">${fmt(c?.p)}</td><td class="n">${bytes(c?.b)}</td></tr>`;
+  });
+  const a=rs['default-action']||dflt;
+  out.push(defRow(g,a,CNT[`${pfx}-${name} default-action ${a}`],'default-log' in rs));
+  return out;
+}
+function named(rows,label,name){
+  const rs=V4.name?.[name]||{},[g,hd]=grp(label,ids(rs.rule).length+1);
+  rows.push(hd,...rulesetRows(g,rs,'NAM',name,'drop'));
+}
+function vPolicy(){
+  const rows=[],used=new Set();
+  for(const [to,z] of Object.entries(ZONES)){
+    for(const [from,f] of Object.entries(z.from||{})){
+      const n=f.firewall?.name;if(!n)continue;used.add(n);
+      named(rows,`${zl(from)}${ARROW}${zl(to)} <small>name ${h(n)}</small>`,n);
+    }
+    const intra=z['intra-zone-filtering'];
+    if(intra?.firewall?.name){used.add(intra.firewall.name);named(rows,`${zl(to)}${ARROW}${zl(to)} <small>intra-zone, name ${h(intra.firewall.name)}</small>`,intra.firewall.name);}
+    else if(intra?.action){const[g,hd]=grp(`${zl(to)}${ARROW}${zl(to)} <small>intra-zone</small>`,1);rows.push(hd,defRow(g,intra.action));}
+  }
+  if(V4.forward?.filter){const[g,hd]=grp(`forward filter <small>zone 밖의 경유 트래픽</small>`,ids(V4.forward.filter.rule).length+1);rows.push(hd,...rulesetRows(g,V4.forward.filter,'FWD','filter','accept'));}
+  for(const n of Object.keys(V4.name||{}))if(!used.has(n))named(rows,`name ${h(n)} <small>zone 에 연결되지 않음 (jump 대상 등)</small>`,n);
+  for(const [zn,z] of Object.entries(ZONES)){
+    const a=z['default-action']||'drop',[g,hd]=grp(`${zl('any')}${ARROW}${zl(zn)} <small>위 정책에 없는 출발지</small>`,1,'imp');
+    rows.push(hd,defRow(g,a,CNT[`zone_${zn} default-action ${a}`]));
+  }
+  return table(POLCOLS,rows);
+}
+function vLocal(){
+  const rows=[];
+  for(const [k,pfx,label] of [['input','INP','장비로 들어오는 트래픽 (input filter)'],['output','OUT','장비가 보내는 트래픽 (output filter)']]){
+    const rs=V4[k]?.filter;if(!rs)continue;
+    const[g,hd]=grp(label,ids(rs.rule).length+1);rows.push(hd,...rulesetRows(g,rs,pfx,'filter','accept'));
+  }
+  return table(POLCOLS,rows);
+}
+function vNat(){
+  const rows=[];
+  for(const [kind,pfx,ifk,label] of [['source','SRC-NAT','outbound-interface','Source NAT'],['destination','DST-NAT','inbound-interface','Destination NAT']]){
+    const rs=C.nat?.[kind]?.rule||{};if(!Object.keys(rs).length)continue;
+    const[g,hd]=grp(label,Object.keys(rs).length);rows.push(hd);
+    for(const id of ids(rs)){
+      const r=rs[id],c=CNT[`${pfx}-${id}`],i=r[ifk],tr=r.translation||{};
+      const to='exclude' in r?'<span class="muted">exclude (NAT 안 함)</span>':h([tr.address,tr.port&&'port '+tr.port].filter(Boolean).join(' '));
+      rows.push(`<tr data-g="${g}"${'disable' in r?' class="off"':''}><td>${h(id)}</td><td>${h(r.description||'')}</td><td>${h(i?.name||(i?.group?'@'+i.group:'any'))}</td><td>${ends(r.source)}</td><td>${ends(r.destination)}</td><td>${svc(r)}</td><td>${to}</td><td>${rest(r,[ifk,'translation','exclude'])}</td><td class="n">${fmt(c?.p)}</td><td class="n">${bytes(c?.b)}</td></tr>`);
+    }
+  }
+  return table(['ID','Name','Interface','Source','Destination','Service','Translation','Match','Packets','Bytes'],rows);
+}
+function vAddr(){
+  const rows=[];
+  for(const t of Object.keys(GRP)){
+    const[g,hd]=grp(h(t),Object.keys(GRP[t]).length);rows.push(hd);
+    for(const n of Object.keys(GRP[t]).sort()){
+      const ref=REFS[t+':'+n]||[];
+      rows.push(`<tr data-g="${g}"><td>${tg(t,n)}</td><td>${h(t)}</td><td>${members(t,n).map(m=>`<div>${h(m)}</div>`).join('')}</td><td>${h(GRP[t][n].description||'')}</td><td class="n" title="${h(ref.join('\n'))}">${ref.length}</td></tr>`);
+    }
+  }
+  return table(['Name','Type','Members','Comments','Ref.'],rows);
+}
+
+/* ---------- network views ---------- */
+const IFS=Object.entries(C.interfaces||{}).flatMap(([type,o])=>Object.keys(o).map(n=>({type,n,c:o[n],l:(D.ip||[]).find(x=>x.ifname===n)})));
+const zoneOf=n=>Object.keys(ZONES).find(z=>arr(ZONES[z].member?.interface).includes(n))||'';
+const ip4=i=>i.l?(i.l.addr_info||[]).filter(a=>a.family==='inet').map(a=>a.local+'/'+a.prefixlen):arr(i.c.address);
+function vIf(){
+  const rows=IFS.map(i=>`<tr><td>${st(i.l?.operstate)} <span class="muted">${h(i.l?.operstate||'n/a')}</span></td><td>${h(i.n)}</td><td>${h(i.type)}</td><td>${h(i.c.description||'')}</td><td>${h(zoneOf(i.n))}</td><td>${h(i.c.vrf||'default')}</td><td>${ip4(i).map(a=>`<div>${h(a)}</div>`).join('')}${arr(i.c.address).includes('dhcp')?'<div class="muted">dhcp</div>':''}</td><td>${h(i.l?.address||i.c['hw-id']||'')}</td><td class="n">${h(i.l?.mtu||i.c.mtu||'')}</td></tr>`);
+  return table(['Status','Name','Type','Description','Zone','VRF','IP/Netmask','MAC','MTU'],rows);
+}
+function vRoutes(){
+  const rows=[],tabs=[['default',C.protocols?.static],...Object.entries(C.vrf?.name||{}).map(([v,o])=>[v,o.protocols?.static])];
+  for(const [vrf,s] of tabs){
+    for(const dst of Object.keys(s?.route||{})){
+      const r=s.route[dst],hops=[...Object.entries(r['next-hop']||{}),...Object.keys(r.interface||{}).map(i=>['',{interface:i}])];
+      if('blackhole' in r)hops.push(['blackhole',r.blackhole||{}]);
+      for(const [gw,o] of hops){
+        // shortcut: 커널 경로는 메인 테이블(ip -j route)만 읽는다, VRF 경로 상태가 필요하면 vyos-ui.sh 에서 ip -j route show vrf 를 더 받는다
+        const k=vrf==='default'&&(D.route||[]).find(x=>(x.dst==='default'?'0.0.0.0/0':x.dst)===dst&&(!gw||gw==='blackhole'||x.gateway===gw));
+        rows.push(`<tr><td>${h(dst)}</td><td>${h(gw)}</td><td>${h(o?.interface||k?.dev||'')}</td><td class="n">${h(o?.distance||1)}</td><td>${h(vrf)}</td><td>${vrf!=='default'?'<span class="na">•</span> <span class="muted">n/a</span>':k?'<span class="up">▲</span> active':'<span class="dn">▼</span> not in kernel'}</td></tr>`);
+      }
+    }
+  }
+  return table(['Destination','Gateway','Interface','Distance','VRF','Status'],rows);
+}
+function vConfig(){
+  const rows=LEAVES.map(([p,v])=>`<tr><td class="mono">set ${h(p.join(' '))}${v==null?'':` '${h(v)}'`}</td></tr>`);
+  return table(['show configuration commands'],rows);
+}
+
+/* ---------- dashboard ---------- */
+const kv=o=>`<table class="kv">${o.map(([k,v])=>`<tr><td>${k}</td><td>${v}</td></tr>`).join('')}</table>`;
+function vStatus(){
+  const up=+D.uptime||0,d=Math.floor(up/86400),hh=Math.floor(up%86400/3600),mm=Math.floor(up%3600/60);
+  const allRs=[...Object.values(V4.name||{}),V4.input?.filter,V4.forward?.filter,V4.output?.filter].filter(Boolean);
+  const nRoutes=[C.protocols?.static,...Object.values(C.vrf?.name||{}).map(o=>o.protocols?.static)].reduce((s,x)=>s+Object.keys(x?.route||{}).length,0);
+  return `<div class="dash">
+  <div class="wg"><h3>System Information</h3>${kv([['Hostname',h(C.system?.['host-name']||'')],['Version',h(D.version)],['Management IP',h(D.host)],['Uptime',`${d}d ${hh}h ${mm}m`],['Snapshot',h(D.fetched)]])}</div>
+  <div class="wg"><h3>Policy Summary</h3>${kv([['Zones',Object.keys(ZONES).length],['Rulesets',allRs.length],['Rules',allRs.reduce((s,r)=>s+Object.keys(r.rule||{}).length,0)],['Groups',Object.values(GRP).reduce((s,x)=>s+Object.keys(x).length,0)],['NAT rules',Object.keys(C.nat?.source?.rule||{}).length+Object.keys(C.nat?.destination?.rule||{}).length],['Static routes',nRoutes]])}</div>
+  <div class="wg"><h3>Interfaces</h3>${kv(IFS.map(i=>[`${st(i.l?.operstate)} ${h(i.n)} <span class="muted">${h(i.c.description||'')}</span>`,ip4(i).map(h).join('<br>')||'<span class="muted">-</span>']))}</div>
+  <div class="wg"><h3>State Policy</h3>${kv(['established','related','invalid'].map(s=>{const a=FW['global-options']?.['state-policy']?.[s]?.action;return[s,a?`${act(a)} <span class="muted">${fmt(ST[s]?.p)} pkts, ${bytes(ST[s]?.b)}</span>`:'<span class="muted">not set</span>'];}))}</div>
+  </div>`;
+}
+
+/* ---------- navigation ---------- */
+const ICO={gauge:'<circle cx="12" cy="13" r="8"/><path d="M12 13l4-4"/>',net:'<path d="M12 3v18M3 12h18M12 3l-3 3M12 3l3 3M12 21l-3-3M12 21l3-3M3 12l3-3M3 12l3 3M21 12l-3-3M21 12l-3 3"/>',policy:'<path d="M5 3h9l5 5v13H5zM14 3v5h5M8 13h8M8 17h8"/>',gear:'<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M5 19l2-2M17 7l2-2"/>'};
+const NAV=[
+  ['Dashboard','gauge',[['status','Status',vStatus]]],
+  ['Network','net',[['interfaces','Interfaces',vIf],['static-routes','Static Routes',vRoutes]]],
+  ['Policy & Objects','policy',[['firewall-policy','Firewall Policy',vPolicy],['local-in-policy','Local In Policy',vLocal],['addresses','Addresses',vAddr],['nat','NAT',vNat]]],
+  ['System','gear',[['configuration','Configuration',vConfig]]],
+];
+$('#nav').innerHTML=NAV.map(([sec,ico,items])=>`<div class="nav-sec"><div class="nav-top"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.7">${ICO[ico]}</svg><span class="lbl">${sec}</span><svg class="chev" viewBox="0 0 10 10" fill="none" stroke="#fff" stroke-width="1.6"><path d="M3 1l4 4-4 4"/></svg></div>
+  <div class="nav-sub">${items.map(([id,l])=>`<a class="nav-item" href="#${id}" data-id="${id}">${l}</a>`).join('')}</div></div>`).join('');
+document.querySelectorAll('.nav-top').forEach(t=>t.onclick=()=>t.parentElement.classList.toggle('open'));
+$('#burger').onclick=()=>$('.app').classList.toggle('collapsed');
+const host=C.system?.['host-name']||'vyos';
+$('#dev').textContent=host;$('#ver').textContent=(D.version||'').replace(/^VyOS /,'');$('#snap').textContent=`${D.host}, ${D.fetched}`;
+document.title=`${host} - VyOS Viewer`;
+
+function render(){
+  const id=location.hash.slice(1)||'status',sec=NAV.find(s=>s[2].some(i=>i[0]===id))||NAV[0],it=sec[2].find(i=>i[0]===id)||sec[2][0];
+  document.querySelectorAll('.nav-item').forEach(a=>a.classList.toggle('on',a.dataset.id===it[0]));
+  document.querySelectorAll('.nav-sec').forEach((s,i)=>s.classList.toggle('open',NAV[i]===sec));
+  $('#title').textContent=it[1];
+  GID=0;const el=$('#content');el.innerHTML=it[2]();
+  el.querySelectorAll('tr.grp').forEach(t=>t.onclick=()=>{t.classList.toggle('closed');el.querySelectorAll(`tr[data-g="${t.dataset.h}"]`).forEach(r=>r.classList.toggle('fold'));});
+  const q=el.querySelector('.search input');
+  if(q)q.oninput=()=>{const s=q.value.trim().toLowerCase();el.querySelectorAll('tbody tr:not(.grp)').forEach(r=>r.classList.toggle('miss',!!s&&!r.textContent.toLowerCase().includes(s)));};
+}
+addEventListener('hashchange',render);render();
+</script>
+</body>
+</html>
